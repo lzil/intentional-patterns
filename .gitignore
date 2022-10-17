@@ -1,0 +1,19 @@
+playground/
+node_modules/
+analysis/data
+
+__pycache__/
+
+.DS_Store
+
+# Local Netlify folder
+.netlify
+.Rproj.user
+.Rhistory
+
+all_data.json
+
+.env
+faunaquery.py
+
+.checklist
