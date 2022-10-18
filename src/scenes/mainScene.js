@@ -209,7 +209,7 @@ export default class MainScene extends Phaser.Scene {
       instructions_font_params))
     
     this.instructions_1.add(this.add.rexBBCodeText(-500, 50,
-      'Once you finish, or time runs out, you\'ll see your score.\nThe better your drawing, the higher your score.',
+      'Once you finish, or time runs out, you\'ll see your drawing and your\nscore. The better your drawing, the higher your score.',
       instructions_font_params))
     this.instructions_1.add(this.add.rectangle(-450, 150, 100, 8, DARKGRAY))
     this.instructions_1.add(this.add.rexBBCodeText(-500, 180,
@@ -485,7 +485,7 @@ export default class MainScene extends Phaser.Scene {
         let py = p.y - this.hd2
         // px = Math.max(MIN_X, Math.min(MAX_X, px))
         // py = Math.max(MIN_Y, Math.min(MAX_Y, py))
-        // this.draw_points.push(this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5))
+        this.draw_points.push(this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5).setAlpha(.5).setDepth(-2).setVisible(false))
       };
 
       // has participant started moving yet?
@@ -498,6 +498,9 @@ export default class MainScene extends Phaser.Scene {
           this.move_time = cur_time
           this.trial_data['move_time'] = cur_trial_time
           // console.log(cur_trial_time, 'move_time')
+
+          this.pattern.setVisible(false)
+          this.pattern_border.setVisible(false)
 
           // we will need to ask a question about colored shapes
           this.cs_ids = this.choose_cs_subset()
@@ -554,9 +557,10 @@ export default class MainScene extends Phaser.Scene {
 
         this.game.canvas.style.cursor = 'default' 
 
-        for (let p of this.draw_points) {
-          p.destroy()
+        if (this.task_phase != 3 ) {
+          for (let p of this.draw_points) {p.setVisible(true)}
         }
+        
         for (let p of this.distractors) {
           p.destroy()
         }
@@ -581,7 +585,7 @@ export default class MainScene extends Phaser.Scene {
           let real_p = [this.pattern_json[this.pattern_id][0].map(x => x * DRAWING_SIZE), this.pattern_json[this.pattern_id][1].map(y => y * DRAWING_SIZE)]
           let pairs = toPairs(user_p, real_p)
           let score = shapeSimilarity(pairs[0], pairs[1], { estimationPoints: 80, checkRotations: false });
-          this.score = Math.pow(score, 2)
+          this.score = Math.pow(score, 3)
           console.log('score', score)
 
           if (this.instruct_mode == 1) {this.arrow_back.setVisible(false)}
@@ -596,6 +600,7 @@ export default class MainScene extends Phaser.Scene {
           this.time.delayedCall(TRIAL_DELAY, () => {
             if (this.trial_type == 'single' || this.trial_type == 'double') {
               this.state = states.SHAPES
+              for (let p of this.draw_points) {p.destroy()}
             } else {
               this.trial_data['shape_correct'] = 1
               this.trial_success_count++
@@ -603,6 +608,7 @@ export default class MainScene extends Phaser.Scene {
               this.trial_data['score'] = this.score
               this.all_trial_data.push(this.trial_data)
               this.next_trial()
+              for (let p of this.draw_points) {p.destroy()}
             }
           })
         } else {
@@ -619,6 +625,7 @@ export default class MainScene extends Phaser.Scene {
           this.all_trial_data.push(this.trial_data)
           this.time.delayedCall(TRIAL_PUNISH_DELAY, () => {
             this.next_trial()
+            for (let p of this.draw_points) {p.destroy()}
           })
         }
         this.rewardText.setVisible(true)
@@ -739,10 +746,10 @@ export default class MainScene extends Phaser.Scene {
         this.instruct_mode = 2
         this.task_step = 1
         this.pattern.destroy()
-        this.difficulty = '6'
-        this.pattern_id = '70'
-        this.pattern = this.add.image(0, PATTERN_Y, '6_70').setScale(.5).setVisible(false)
-        this.pattern_json = patterns6
+        this.difficulty = '4'
+        this.pattern_id = '40'
+        this.pattern = this.add.image(0, PATTERN_Y, '4_40').setScale(.5).setVisible(false)
+        this.pattern_json = patterns4
         this.state = states.INSTRUCT
         return
       }
@@ -781,21 +788,21 @@ export default class MainScene extends Phaser.Scene {
         this.task_step++
         this.pattern.destroy()
         if (this.task_step == 2) {
+          this.difficulty = '6'
+          this.pattern_id = '70'
+          this.pattern = this.add.image(0, PATTERN_Y, '6_70').setScale(.5).setVisible(false)
+          this.pattern_json = patterns6
+          this.state = states.PRETRIAL
+        } else if (this.task_step == 3) {
           this.difficulty = '7'
           this.pattern_id = '65'
           this.pattern = this.add.image(0, PATTERN_Y, '7_65').setScale(.5).setVisible(false)
           this.pattern_json = patterns7
           this.state = states.PRETRIAL
-        } else if (this.task_step == 3) {
+        } else if (this.task_step == 4) {
           this.difficulty = '8'
           this.pattern_id = '81'
           this.pattern = this.add.image(0, PATTERN_Y, '8_81').setScale(.5).setVisible(false)
-          this.pattern_json = patterns8
-          this.state = states.PRETRIAL
-        } else if (this.task_step == 4) {
-          this.difficulty = '8'
-          this.pattern_id = '18'
-          this.pattern = this.add.image(0, PATTERN_Y, '8_18').setScale(.5).setVisible(false)
           this.pattern_json = patterns8
           this.state = states.PRETRIAL
         } else {
