@@ -7,9 +7,6 @@ import EndScene from './scenes/endScene'
 
 import BBCodeTextPlugin from 'phaser3-rex-plugins/plugins/bbcodetext-plugin.js'
 
-// let height = window.screen.height
-// let width = height * 1.5
-
 let height = 1200
 let width = 1800
 
@@ -63,7 +60,7 @@ window.addEventListener('load', () => {
     is_prolific: url_params.get('PROLIFIC_PID') !== null,
     is_sona: url_params.get('SONA_ID') !== null,
     institution: 'yale',
-    description: 'intentional-patterns v1',
+    description: 'intentional-patterns v2',
     datetime: new Date(),
     already_visited: localStorage.getItem('intentional-patterns') !== null,
     width: game.config.width,
@@ -79,8 +76,6 @@ window.addEventListener('load', () => {
     version: 1,
     condition: condition
   }
-  user_config.device = 'none'
-
   console.log(user_config)
 
   game.user_config = user_config // patch in to pass into game

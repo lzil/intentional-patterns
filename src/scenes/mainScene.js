@@ -496,7 +496,9 @@ export default class MainScene extends Phaser.Scene {
         let py = p.y - this.hd2
         // px = Math.max(MIN_X, Math.min(MAX_X, px))
         // py = Math.max(MIN_Y, Math.min(MAX_Y, py))
-        this.draw_points.push(this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5).setAlpha(.5).setDepth(-2).setVisible(false))
+        let pt = this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5).setAlpha(.5).setDepth(-2)
+        if (this.task_phase != 3 ) {pt.setVisible(true)}
+        this.draw_points.push(pt)
       };
 
       // has participant started moving yet?
@@ -567,10 +569,6 @@ export default class MainScene extends Phaser.Scene {
         this.entering = false
 
         this.game.canvas.style.cursor = 'default' 
-
-        if (this.task_phase != 3 ) {
-          for (let p of this.draw_points) {p.setVisible(true)}
-        }
         
         for (let p of this.distractors) {
           p.destroy()
