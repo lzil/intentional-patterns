@@ -19,9 +19,10 @@ const phaser_config = {
   scale: {
     parent: 'phaser-game',
     mode: Phaser.Scale.FIT,
-    // autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
     width: width,
     height: height
+
   },
   audio: {
     noAudio: true
@@ -59,7 +60,7 @@ window.addEventListener('load', () => {
     is_prolific: url_params.get('PROLIFIC_PID') !== null,
     is_sona: url_params.get('SONA_ID') !== null,
     institution: 'yale',
-    description: 'intentional-patterns v3',
+    description: 'intentional-patterns v1',
     datetime: new Date(),
     already_visited: localStorage.getItem('intentional-patterns') !== null,
     width: game.config.width,
@@ -70,6 +71,7 @@ window.addEventListener('load', () => {
       browser: ua_res.browser,
       os: ua_res.os
     },
+    fullscreen_supported: document.fullscreenEnabled,
     is_debug: url_params.get('debug') !== null,
     version: 1,
   }

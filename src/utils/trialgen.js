@@ -40,15 +40,14 @@ function randint(min, max) {
 
 export default function generateTrials(params, is_debug = false) {
   let trials = []
-  const n_trials = params['n_trials']
-
+  const n_trials = params.n_trials
 
   for (let i = 0; i < n_trials; i++) {
     let trial = {ix: i}
-    trial.type = 'normal'
-    trial.difficulty = params.difficulty
+    trial.type = params.type
 
-    // decides whether trial is probe, normal
+    if (params.type == 0)
+
     let trial_coin_toss = Math.random()
     if (trial_coin_toss < params.probe_prob) {
       trial.type = 'probe'
