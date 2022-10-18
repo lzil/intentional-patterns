@@ -55,6 +55,7 @@ window.addEventListener('load', () => {
     url_params.get('id') ||
     randomString(8)
   let ua_res = new UAParser().getResult()
+  let condition = url_params.get('COND') || 2
   let user_config = {
     id: id.slice(0, 8), // just the first part of the ID, we don't need to store the whole thing
     is_prolific: url_params.get('PROLIFIC_PID') !== null,
@@ -74,6 +75,7 @@ window.addEventListener('load', () => {
     fullscreen_supported: document.fullscreenEnabled,
     is_debug: url_params.get('debug') !== null,
     version: 1,
+    condition: condition
   }
   user_config.device = 'none'
   user_config.is_debug = true

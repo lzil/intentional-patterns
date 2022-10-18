@@ -9,7 +9,7 @@ import { shapeSimilarity } from 'curve-matcher';
 import patterns4 from '../../public/patterns/p4.json'
 import patterns6 from '../../public/patterns/p6.json'
 import patterns7 from '../../public/patterns/p7.json'
-import patterns8 from '../../public/patterns/p8.json'
+// import patterns8 from '../../public/patterns/p8.json'
 
 const WHITE = 0xffffff
 const GREEN = 0x39ff14 // actually move to the target
@@ -45,7 +45,7 @@ const MIN_X = -DRAWING_SIZE / 2
 
 const TRIAL_DELAY = 1500
 const TRIAL_SHAPE_DELAY = 1000
-const TRIAL_PUNISH_DELAY = 4000
+const TRIAL_PUNISH_DELAY = 3000
 
 const states = Enum([
   'INSTRUCT', // show text instructions (based on stage of task)
@@ -89,9 +89,9 @@ export default class MainScene extends Phaser.Scene {
 
     // all the images of ids
     this.p4_ids = [0, 40, 41, 56]
-    this.p6_ids = [13, 25, 70, 90, 96]
+    this.p6_ids = [13, 25, 70, 72, 90, 96]
     this.p7_ids = [32, 65, 92]
-    this.p8_ids = [1, 21, 57, 60, 81]
+    // this.p8_ids = [1, 21, 57, 60, 81]
 
     for (let i of this.p4_ids) {
       this.load.image(`4_${i}`, `patterns/figs_4/4_${i}.png`);
@@ -102,9 +102,9 @@ export default class MainScene extends Phaser.Scene {
     for (let i of this.p7_ids) {
       this.load.image(`7_${i}`, `patterns/figs_7/7_${i}.png`);
     }
-    for (let i of this.p8_ids) {
-      this.load.image(`8_${i}`, `patterns/figs_8/8_${i}.png`);
-    }
+    // for (let i of this.p8_ids) {
+    //   this.load.image(`8_${i}`, `patterns/figs_8/8_${i}.png`);
+    // }
   }
 
   create() {
@@ -127,17 +127,24 @@ export default class MainScene extends Phaser.Scene {
     this.difficulty = '4'
     this.pattern_id = '41'
     this.pattern_json = patterns4
-    this.n_total_shapes = 3
 
     this.colorshapes = []
     this.distractors = []
 
-    this.phase_len = 5
-    this.miniphase_len = 2
-    this.test_len = 3
-    this.subject_type = 2 // 1 for single, 2 for double
+    this.phase_len = 20
+    this.miniphase_len = 3
+    this.test_len = 10
+    if (user_config.condition == 1) {
+      this.subject_type = 1
+    } else {
+      this.subject_type = 2 // 1 for single, 2 for double
+    }
+    
 
     this.is_debug = user_config.is_debug
+    if (this.is_debug) {
+      this.subject_type = 2
+    }
 
 
     // drawing elements
@@ -789,21 +796,21 @@ export default class MainScene extends Phaser.Scene {
         this.pattern.destroy()
         if (this.task_step == 2) {
           this.difficulty = '6'
-          this.pattern_id = '70'
-          this.pattern = this.add.image(0, PATTERN_Y, '6_70').setScale(.5).setVisible(false)
+          this.pattern_id = '13'
+          this.pattern = this.add.image(0, PATTERN_Y, '6_13').setScale(.5).setVisible(false)
           this.pattern_json = patterns6
           this.state = states.PRETRIAL
         } else if (this.task_step == 3) {
+          this.difficulty = '6'
+          this.pattern_id = '72'
+          this.pattern = this.add.image(0, PATTERN_Y, '6_72').setScale(.5).setVisible(false)
+          this.pattern_json = patterns6
+          this.state = states.PRETRIAL
+        } else if (this.task_step == 4) {
           this.difficulty = '7'
           this.pattern_id = '65'
           this.pattern = this.add.image(0, PATTERN_Y, '7_65').setScale(.5).setVisible(false)
           this.pattern_json = patterns7
-          this.state = states.PRETRIAL
-        } else if (this.task_step == 4) {
-          this.difficulty = '8'
-          this.pattern_id = '81'
-          this.pattern = this.add.image(0, PATTERN_Y, '8_81').setScale(.5).setVisible(false)
-          this.pattern_json = patterns8
           this.state = states.PRETRIAL
         } else {
           this.state = states.END
