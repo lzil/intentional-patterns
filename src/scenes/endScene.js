@@ -8,7 +8,7 @@ const WHITE = 0xffffff
 const GREEN = 0x39ff14 // actually move to the target
 const RED = 0xff0000
 const BRIGHTRED = Phaser.Display.Color.GetColor(175, 50, 50)
-const DARKGRAY = 0x444444
+const DARKGRAY = 0x333333
 const GRAY = Phaser.Display.Color.GetColor(100, 100, 100)
 const LIGHTGRAY = Phaser.Display.Color.GetColor(150, 150, 150)
 const CYAN = Phaser.Display.Color.GetColor(100, 150, 250)
@@ -29,9 +29,10 @@ export default class EndScene extends Phaser.Scene {
 
 
     // finish text and button
-    this.add.text(0,-100,"Click the button below to finish.", {
+    this.add.rexBBCodeText(0,-100,"Click the button below to finish.", {
       fontFamily: 'Verdana',
       fontSize: 40,
+      color: DARKGRAY,
       align: 'center'
     }).setOrigin(0.5, 0.5)
     this.add.image(0, 50, 'finish').setRotation(Phaser.Math.DegToRad(45)).setScale(.2)
