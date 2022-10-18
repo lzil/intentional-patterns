@@ -30,7 +30,7 @@ const BRIGHTRED = 0xd40a0a
 const BRIGHTGREEN = 0x24f49a
 
 const ORIGIN_SIZE_RADIUS = 15
-const MOVE_TIME_LIMIT = 900
+const MOVE_TIME_LIMIT = 1200
 const DRAW_TIME_LIMIT = 3000
 
 const PATTERN_Y = -300
@@ -143,9 +143,13 @@ export default class MainScene extends Phaser.Scene {
 
     this.is_debug = user_config.is_debug
     if (this.is_debug) {
-      this.subject_type = 2
+      this.phase_len = 2
+      this.miniphase_len = 1
+      this.test_len = 1
     }
 
+    console.log('condition', this.subject_type)
+    console.log('debug', this.is_debug)
 
     // drawing elements
     this.pattern_border = this.add.rectangle(0, PATTERN_Y, 280, 280, DARKGRAY)
@@ -592,12 +596,12 @@ export default class MainScene extends Phaser.Scene {
           let real_p = [this.pattern_json[this.pattern_id][0].map(x => x * DRAWING_SIZE), this.pattern_json[this.pattern_id][1].map(y => y * DRAWING_SIZE)]
           let pairs = toPairs(user_p, real_p)
           let score = shapeSimilarity(pairs[0], pairs[1], { estimationPoints: 80, checkRotations: false });
-          this.score = Math.pow(score, 3)
-          console.log('score', score)
+          this.score = Math.pow(score, 4)
+          console.log('score', this.score)
 
           if (this.instruct_mode == 1) {this.arrow_back.setVisible(false)}
 
-          this.score = Math.round(score * 1000) / 10
+          this.score = Math.round(this.score * 1000) / 10
           if (this.task_phase != 3) {
             this.rewardText.setText(`Your shape score was ${this.score}.`)
           } else {

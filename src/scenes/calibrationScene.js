@@ -11,18 +11,6 @@ const CALIBRATION_SUCCESS_DELAY = 1500
 const N_CIRCLES = 20
 
 
-// calculate median
-function median(values){
-  if(values.length ===0) throw new Error("No inputs");
-  values.sort(function(a,b){
-    return a-b;
-  });
-  var half = Math.floor(values.length / 2);
-  if (values.length % 2)
-    return values[half];
-  return (values[half - 1] + values[half]) / 2.0;
-}
-
 export default class CalibrationScene extends Phaser.Scene {
   constructor() {
     super({ key: 'CalibrationScene' })
