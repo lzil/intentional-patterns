@@ -21,7 +21,7 @@ ap.add_argument('path', type=str, help='json file to use')
 ap.add_argument('ids', type=int, nargs='+', help='ids to turn into image')
 args = ap.parse_args()
 
-dif = args.path.split('.')[-2].split('_')[-1]
+dif = args.path.split('.')[-2][-1]
 
 with open(Path(args.path), 'r') as f:
 	trajs = json.load(f)

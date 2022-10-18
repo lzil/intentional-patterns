@@ -1,43 +1,43 @@
 import { TypingText } from '../objects/typingtext'
 import { Enum } from '../utils/enum'
 import { clamp } from '../utils/clamp'
+import { randint, randchoice, shuffle } from '../utils/rand'
+import toPairs from '../utils/topairs'
 
-import { randint, randchoice } from '../utils/rand'
-import generateTrials from '../utils/trialgen'
-import score from '../utils/score'
+import { shapeSimilarity } from 'curve-matcher';
 
+import patterns4 from '../../public/patterns/p4.json'
+import patterns6 from '../../public/patterns/p6.json'
+import patterns8 from '../../public/patterns/p8.json'
 
 const WHITE = 0xffffff
 const GREEN = 0x39ff14 // actually move to the target
 const RED = 0xff0000
 const BLACK = 0x000000
 const BRIGHTRED = Phaser.Display.Color.GetColor(175, 50, 50)
-const DARKGRAY = 0x444444
+const DARKGRAY = 0x333333
 const GRAY = Phaser.Display.Color.GetColor(100, 100, 100)
 const LIGHTGRAY = Phaser.Display.Color.GetColor(150, 150, 150)
 const CYAN = Phaser.Display.Color.GetColor(100, 150, 250)
 const SALMON = Phaser.Display.Color.GetColor(250, 100, 100)
-const ORANGE = 0xffa500
-
 const TEAL = 0x7DC0A6
 
-const TARGET_SIZE_RADIUS = 75
 const ORIGIN_SIZE_RADIUS = 15
-const MOVE_THRESHOLD = 4
+const MOVE_TIME_LIMIT = 900
+const DRAW_TIME_LIMIT = 3000
 
-const TARGET_DISTANCE = 850 // *hopefully* they have 300px available?
-const TARGET_SHOW_DISTANCE = 800
-const TARGET_REF_ANGLE = 270 // degrees, and should be pointed straight up
-const TARGET_ANGLE = 50
-const DRAW_TIME_LIMIT = 900
-const PRACTICE_REACH_TIME_LIMIT = 20000
-const REACH_TIME_LIMIT = 900
-const CURSOR_Y = 100
 const PATTERN_Y = -300
+const DRAWING_Y = 200
+const DRAWING_SIZE = 600
+const CURSOR_Y = DRAWING_Y
+
+const MAX_Y = DRAWING_Y + DRAWING_SIZE / 2
+const MIN_Y = DRAWING_Y - DRAWING_SIZE / 2
+const MAX_X = DRAWING_SIZE / 2
+const MIN_X = -DRAWING_SIZE / 2
 
 const SPEED_LIMIT = 1.5
 
-const MED_TIME_MULTIPLIER = 2
 
 const TRIAL_DELAY = 1000
 const PRACTICE_TRIAL_PUNISH_DELAY = 200
@@ -62,6 +62,12 @@ const Err = {
   too_fast_reach: 16
 }
 
+const DCols = {
+  0: 0x22a4e0,
+  1: 0xbd22e0,
+  2: 0xe05e22
+}
+
 export default class MainScene extends Phaser.Scene {
   constructor() {
     super({ key: 'MainScene' })
@@ -75,7 +81,21 @@ export default class MainScene extends Phaser.Scene {
     this.load.image('finish', 'assets/ticket.png')
     this.load.image('brush', 'assets/brush2.png');
 
-    this.load.image('4_15', 'patterns/4_15.png');
+
+    // all the images of ids
+    this.p4_ids = [0, 40, 41, 56]
+    this.p6_ids = [13, 25, 70, 90, 96]
+    this.p8_ids = [1, 21, 57, 60, 81]
+
+    for (let i of this.p4_ids) {
+      this.load.image(`4_${i}`, `patterns/figs_4/4_${i}.png`);
+    }
+    for (let i of this.p6_ids) {
+      this.load.image(`6_${i}`, `patterns/figs_6/6_${i}.png`);
+    }
+    for (let i of this.p8_ids) {
+      this.load.image(`8_${i}`, `patterns/figs_8/8_${i}.png`);
+    }
   }
 
   create() {
@@ -110,16 +130,15 @@ export default class MainScene extends Phaser.Scene {
     // this.rt = this.add.renderTexture(0, 0, 800, 600);
     // this.brush = this.textures.getFrame('brush');
 
-    this.add.rectangle(0, PATTERN_Y, 280, 280, BLACK)
-    this.pattern = this.add.image(0, PATTERN_Y, '4_15').setScale(.5)
 
-    // this.input.on('pointermove', function (pointer) {
-    //   var points = pointer.getInterpolatedPosition(20);
-    //   for (let p of points) {
-    //       let circ = this.add.circle(p.x, p.y, 5, LIGHTGRAY).setOrigin(0, 0)
-    //       // this.rt.draw(circ, p.x, p.y, 1, BLACK);
-    //   };
-    // }, this);
+    // drawing elements
+    this.pattern_border = this.add.rectangle(0, PATTERN_Y, 280, 280, DARKGRAY)
+    this.pattern = this.add.image(0, PATTERN_Y, '8_81').setScale(.5)
+    this.canvas = this.add.rectangle(0, DRAWING_Y, DRAWING_SIZE, DRAWING_SIZE, WHITE).setStrokeStyle(10, DARKGRAY)
+
+    // distractor elements
+    // this.
+
 
     // fancy "INSTRUCTIONS" title
     // this.instructions_title_group = this.add.group()
@@ -133,34 +152,6 @@ export default class MainScene extends Phaser.Scene {
 
     // secret finish button
     this.finish = this.add.rectangle(this.wd2,this.hd2,50,50).setInteractive().on('pointerdown',()=>{this.scene.start('EndScene', this.all_trial_data)})
-
-    // button to next set of instructions / next page
-    // this.arrow_next = this.add.image(400, 450, 'next')
-    //   .setScale(.2)
-    //   .setAlpha(.7)
-    // button back to instructions
-    this.arrow_back = this.add.image(-450, 450, 'previous')
-      .setScale(.2)
-      .setAlpha(.7)
-      .setInteractive()
-      .on('pointerover', () => {
-        this.arrow_back.setAlpha(1)
-      }).on('pointerout', () => {
-        this.arrow_back.setAlpha(0.7)
-      })
-      .setVisible(false)
-      .on('pointerdown', () => {
-        this.state = states.INSTRUCT
-        this.instruct_mode = 1
-        this.instructions_holdwhite.setVisible(false)
-        this.instructions_moveup.setVisible(false)
-        this.instructions_hitred.setVisible(false)
-        this.arrow_back.setVisible(false)
-        this.reset_targets()
-        this.origin_obj.setVisible(false)
-        this.trial_success_count = 0
-
-      })
 
     let instructions_font_params = {
       fontFamily: 'Verdana', 
@@ -226,13 +217,13 @@ export default class MainScene extends Phaser.Scene {
 
     // text in the center displaying rewards and errors
     this.reward_txt = this.add.
-      text(0, 0, '', {
+      text(0, 550, '', {
         fontFamily: 'Verdana',
         fontSize: 50,
+        color: DARKGRAY,
         align: 'center'
       }).
-      setOrigin(0.5, 0.5).
-      setVisible(false)
+      setOrigin(0.5, 0.5)
 
     // points counter in upper right hand corner
     this.points_txt = this.add.text(
@@ -322,6 +313,51 @@ export default class MainScene extends Phaser.Scene {
   //   })
   // }
 
+  add_distractor(shapeid, color, pos) {
+    let shape;
+    if (shapeid == 0) {
+      shape = this.add.rectangle(pos[0], pos[1], 50, 50, color, 0).setStrokeStyle(10, color)
+    } else if (shapeid == 1) {
+      shape = this.add.circle(pos[0], pos[1], 25, color, 0).setStrokeStyle(10, color)
+    } else if (shapeid == 2) {
+      shape = this.add.triangle(pos[0], pos[1], 25, 0, 0, 25 * Math.sqrt(3), 50, 25 * Math.sqrt(3)).setStrokeStyle(10, color)
+    }
+    return shape
+  }
+
+  create_distractors() {
+    let choices = [0,1,2]
+    let colors = shuffle(choices).slice(1)
+    let shapes = shuffle(choices).slice(1)
+
+    let positions = shuffle([[-350, 100], [-350, 400], [350, 100], [350, 400]])
+
+    let notChosen = randchoice([0,1,2,3])
+
+    for (let i = 0; i < 4; i++) {
+      if (i == notChosen) continue;
+      let pos = positions[i]
+
+      let shapeid, color;
+      if (i == 0) {
+        shapeid = shapes[0]
+        color = DCols[colors[0]]
+      } else if (i == 1) {
+        shapeid = shapes[0]
+        color = DCols[colors[1]]
+      } else if (i == 2) {
+        shapeid = shapes[1]
+        color = DCols[colors[0]]
+      } else if (i == 3) {
+        shapeid = shapes[1]
+        color = DCols[colors[1]]
+      }
+      this.distractor_shapes.push(this.add_distractor(shapeid, color, pos))
+    }
+
+    return this.distractor_shapes
+  }
+
   update() {
     switch (this.state) {
     case states.INSTRUCT:
@@ -349,6 +385,7 @@ export default class MainScene extends Phaser.Scene {
         this.reward_txt.setVisible(false)
         this.hold_waiting = false
         this.origin_obj.setVisible(true).setFillStyle(LIGHTGRAY)
+        this.distractor_shapes = []
         // if (this.instruct_mode === 1) {
         //   this.instructions_holdwhite.setVisible(true)
         //   this.arrow_back.setVisible(true)
@@ -364,7 +401,7 @@ export default class MainScene extends Phaser.Scene {
         // } else {
         //   this.trial_data['set'] = 'main'
         // }
-        this.pointer_data = {'time': [], 'x': [], 'y': [], 'cx': [], 'cy': [], 'moving': []}
+        this.pointer_data = {'time': [], 'x': [], 'y': []}
         
       }
 
@@ -435,18 +472,18 @@ export default class MainScene extends Phaser.Scene {
 
       var points = this.input.activePointer.getInterpolatedPosition(20);
       for (let p of points) {
-          this.draw_points.push(this.add.image(p.x - this.wd2, p.y - this.hd2, 'brush').setTint(LIGHTGRAY).setScale(.5))
+        let px = p.x - this.wd2
+        let py = p.y - this.hd2
+        px = Math.max(MIN_X, Math.min(MAX_X, px))
+        py = Math.max(MIN_Y, Math.min(MAX_Y, py))
+        this.draw_points.push(this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5))
       };
-
-      // time, x, y, moving
-      this.pointer_data.time.push(cur_trial_time)
-      this.pointer_data.x.push(pointerx)
-      this.pointer_data.y.push(pointery)
-      this.pointer_data.moving.push(this.moving)
 
       // has participant started moving yet?
       if (!this.moving) {
         let mouse_in_origin = this.origin.contains(pointerx, pointery)
+
+        // participant just moved!
         if (!mouse_in_origin) {
           console.log('moving')
           this.moving = true
@@ -454,21 +491,44 @@ export default class MainScene extends Phaser.Scene {
           this.trial_data['move_time'] = cur_trial_time
           console.log(cur_trial_time, 'move_time')
 
+          this.create_distractors()
+
           // if (this.instruct_mode === 1) {
           //   this.instructions_hitred.setVisible(true)
           // }
+        }
+
+        // not moving and we're overtime
+        if (!this.moving && cur_trial_time > MOVE_TIME_LIMIT) {
+          console.log('TOO_SLOW_MOVE')
+          this.trial_error = Err.too_slow_move
+          this.move_time = -1
+          this.state = states.POSTTRIAL
         }
       }
 
       // once we're moving...
       if (this.moving) {
+        // time, x, y
+        this.pointer_data.time.push(cur_trial_time)
+        this.pointer_data.x.push(pointerx)
+        this.pointer_data.y.push(pointery)
+
         let drawing_time = cur_time - this.move_time
 
         let plen = this.pointer_data.x.length
-        let p5x = this.pointer_data.x[plen - 10]
-        let p5y = this.pointer_data.y[plen - 10]
+        let p5x = this.pointer_data.x[plen - 5]
+        let p5y = this.pointer_data.y[plen - 5]
         if (drawing_time > 600 && p5x == pointerx && p5y == pointery) {
-          console.log('finished drawing')
+          console.log('STOPPED_MOVEMENT')
+          this.trial_error = Err.none
+          this.state = states.POSTTRIAL
+        }
+
+        // reached drawing limit time. not an error
+        if (drawing_time > DRAW_TIME_LIMIT) {
+          console.log('DRAW_TIME_LIMIT')
+          this.trial_error = Err.none
           this.state = states.POSTTRIAL
         }
 
@@ -482,16 +542,6 @@ export default class MainScene extends Phaser.Scene {
         //   this.trial_error = Err.too_slow_reach
         //   this.state = states.POSTTRIAL
         // }
-
-      } else {
-        // if not moving yet
-        // check if we're overtime (to reach), before targets are shown
-        if (drawing_time > DRAW_TIME_LIMIT) {
-          console.log('TOO_SLOW_MOVE')
-          this.trial_error = Err.too_slow_move
-          this.move_time = -1
-          this.state = states.POSTTRIAL
-        }
 
       }
 
@@ -507,7 +557,26 @@ export default class MainScene extends Phaser.Scene {
         for (let p of this.draw_points) {
           p.destroy()
         }
+        for (let p of this.distractor_shapes) {
+          p.destroy()
+        }
         this.origin_obj.setVisible(false)
+
+        // calculate score
+        let y0 = this.pointer_data.y[0]
+        let user_p = [this.pointer_data.x, this.pointer_data.y.map(y => -(y - y0))]
+        let real_p = [patterns8['81'][0].map(x => x * DRAWING_SIZE), patterns8['81'][1].map(y => y * DRAWING_SIZE)]
+        let pairs = toPairs(user_p, real_p)
+        let score = shapeSimilarity(pairs[0], pairs[1], { estimationPoints: 80, checkRotations: false });
+        score = Math.pow(score, 2)
+        console.log(score)
+
+        this.score = Math.round(score * 1000) / 10
+
+        // console.log(user_p, real_p)
+        // console.log(score(user_p, real_p))
+        // console.log(user_p)
+        // console.log(real_p)
 
         // if (this.instruct_mode === 1) {
         //   this.instructions_hitred.setVisible(false)
@@ -525,20 +594,7 @@ export default class MainScene extends Phaser.Scene {
         let punish_delay = 0
         if (this.trial_error === Err.none) {
           // no error happened
-          let reward_txt;
-          if (this.instruct_mode === 1) {
-            if (this.reward === 1) {
-              reward_txt = "This target is worth 1 point."
-            } else {
-              reward_txt = `This target is worth ${this.reward} points!`
-            }
-          } else  {
-            if (this.reward === 1) {
-              reward_txt = "You received 1 point."
-            } else {
-              reward_txt = `You received ${this.reward} points!`
-            }
-          }
+          let reward_txt = `Your score was ${this.score}.`
           this.reward_txt.setText(reward_txt)
         } else {
           // some error happened
@@ -589,6 +645,12 @@ export default class MainScene extends Phaser.Scene {
             }
           })
         })
+      }
+      break
+    case states.SHAPES:
+      if (this.entering) {
+        this.entering = false
+        this.scene.start('EndScene', this.all_trial_data)
       }
       break
     case states.END:

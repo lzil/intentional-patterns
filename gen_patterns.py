@@ -43,9 +43,9 @@ for i,ax in enumerate(fig.axes):
 	ax.set_title(i)
 	ax.plot(x, y, c='red', lw=1)
 
-plt.savefig(Path('patterns', f'patterns_{n_points}.png'))
+plt.savefig(Path('patterns', f'p{n_points}.png'))
 
-with open(Path('patterns', f'patterns_{n_points}.json'), 'w') as f:
+with open(Path('patterns', f'p{n_points}.json'), 'w') as f:
 	json.dump(trajectories, f, indent=2)
 
 # def buildmebarchart(i=int):
