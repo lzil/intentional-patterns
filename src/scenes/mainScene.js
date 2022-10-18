@@ -611,6 +611,8 @@ export default class MainScene extends Phaser.Scene {
           this.time.delayedCall(TRIAL_DELAY, () => {
             if (this.trial_type == 'single' || this.trial_type == 'double') {
               this.state = states.SHAPES
+              this.trial_data['error'] = this.trial_error
+              this.trial_data['score'] = this.score
               for (let p of this.draw_points) {p.destroy()}
             } else {
               this.trial_data['shape_correct'] = 1
