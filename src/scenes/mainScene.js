@@ -51,7 +51,8 @@ const Err = {
 const DCols = {
   0: 0x22a4e0,
   1: 0xe05e22,
-  2: 0xbd22e0
+  2: 0xbd22e0,
+  3: 0x3cc81c
 }
 
 const Patterns = {
@@ -112,9 +113,9 @@ export default class MainScene extends Phaser.Scene {
 
     this.colorshapes = []
 
-    this.phase_len = 15
+    this.phase_len = 20
     this.miniphase_len = 3
-    this.test_len = 15
+    this.test_len = 10
     if (user_config.condition == 1) {
       this.condition = 1
     } else {
@@ -221,6 +222,7 @@ export default class MainScene extends Phaser.Scene {
     this.instructions_1.add(this.add_colorshape(0, 0, [-450, 160]))
     this.instructions_1.add(this.add_colorshape(1, 1, [-300, 160]))
     this.instructions_1.add(this.add_colorshape(2, 2, [-150, 160]))
+    this.instructions_1.add(this.add_colorshape(3, 3, [0, 160]))
     this.instructions_1.add(this.add.rexBBCodeText(-500, 210,
       '[b]Remember them![/b] You\'ll be asked about them afterwards.',
       instructions_font_params))
@@ -303,7 +305,7 @@ export default class MainScene extends Phaser.Scene {
 
   // randomly choose 2 of 3 colors, 2 of 3 shapes
   choose_cs_subset() {
-    let choices = [0,1,2]
+    let choices = [0,1,2,3]
     let colors = shuffle(choices).slice(1)
     let shapes = shuffle(choices).slice(1)
     return [colors, shapes]
@@ -336,7 +338,9 @@ export default class MainScene extends Phaser.Scene {
     } else if (shapeid == 1) {
       shape = this.add.circle(pos[0], pos[1], 25, color, 0).setStrokeStyle(10, color)
     } else if (shapeid == 2) {
-      shape = this.add.triangle(pos[0], pos[1], 25, 0, 0, 25 * Math.sqrt(3), 50, 25 * Math.sqrt(3)).setStrokeStyle(10, color)
+      shape = this.add.triangle(pos[0], pos[1], 27, 0, 0, 27 * Math.sqrt(3), 27 * 2, 27 * Math.sqrt(3)).setStrokeStyle(10, color)
+    } else if (shapeid == 3) {
+      shape = this.add.star(pos[0], pos[1], 4, 29 / Math.sqrt(2), 29, color, 0).setStrokeStyle(10, color)
     }
     return shape
   }
@@ -344,12 +348,13 @@ export default class MainScene extends Phaser.Scene {
   // show distractor during "double" trials
   show_distractor(colors, shapes) {
     let positions = shuffle([
-      [-380, 0], [380, 0],
-      [-380, 200], [380, 200],
+      [-400, 0], [400, 0],
+      [-400, 200], [400, 200],
       [-420, -100], [420, -100],
       [-450, 300], [450, 300],
       [-500, 100], [500, 100],
-      [-450, 0], [450, 0]
+      [-450, 0], [450, 0],
+      [-500, -50], [500, -50],
       ])
     let chosenId = randchoice([0,1,2,3])
 
@@ -424,7 +429,7 @@ export default class MainScene extends Phaser.Scene {
         } else if (this.trial_type == 'draw_nofb') {
           this.warningText.setVisible(true).setText('You won\'t be able to see your drawing on this trial.')
         } else if (this.cur_trial_ix == 1) {
-          this.warningText.setVisible(true).setText('You are starting a new pattern!')
+          this.warningText.setVisible(true).setText(`You are starting pattern #${this.task_step}!`)
         }
         // how long you have to be inside circle to start trial
         this.hold_val = randint(300, 600)
@@ -661,8 +666,8 @@ export default class MainScene extends Phaser.Scene {
           this.shapeAnswer = randchoice([0,1,2,3])
           this.cs_ids = this.choose_cs_subset()
           let csid = this.get_csid(this.cs_ids[0], this.cs_ids[1], this.shapeAnswer)
-          let dColor = ['blue', 'orange', 'purple'][csid[0]]
-          let dShape = ['square', 'circle', 'triangle'][csid[1]]
+          let dColor = ['blue', 'orange', 'purple', 'green'][csid[0]]
+          let dShape = ['square', 'circle', 'triangle', 'diamond'][csid[1]]
           this.shapeQuestion.setText(`Please click the ${dColor} ${dShape}:`).setVisible(true)
         }
         console.log(this.shapeAnswer)
