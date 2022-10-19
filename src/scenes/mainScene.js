@@ -69,17 +69,16 @@ export default class MainScene extends Phaser.Scene {
 
   preload() {
     this.load.image('next', 'assets/next_instructions.png')
-    this.load.image('next_debug', 'assets/next_debug.png')
+    // this.load.image('next_debug', 'assets/next_debug.png')
     this.load.image('previous', 'assets/previous_instructions.png')
     this.load.image('finish', 'assets/ticket.png')
     this.load.image('brush', 'assets/brush2.png');
 
 
     // all the images of ids
-    this.p4_ids = [0, 40, 41, 56]
-    this.p6_ids = [13, 25, 70, 72, 90, 96]
-    this.p7_ids = [32, 65, 92]
-    // this.p8_ids = [1, 21, 57, 60, 81]
+    this.p4_ids = [0, 40, 41]
+    this.p6_ids = [13, 72]
+    this.p7_ids = [65]
 
     for (let i of this.p4_ids) {
       this.load.image(`4_${i}`, `patterns/figs_4/4_${i}.png`);
@@ -90,9 +89,6 @@ export default class MainScene extends Phaser.Scene {
     for (let i of this.p7_ids) {
       this.load.image(`7_${i}`, `patterns/figs_7/7_${i}.png`);
     }
-    // for (let i of this.p8_ids) {
-    //   this.load.image(`8_${i}`, `patterns/figs_8/8_${i}.png`);
-    // }
   }
 
   create() {
@@ -146,6 +142,7 @@ export default class MainScene extends Phaser.Scene {
 
     // drawing elements
     this.pattern_border = this.add.rectangle(0, PATTERN_Y, 280, 280, DARKGRAY)
+    console.log(this.cur_pattern[0] + '_' + this.cur_pattern[1])
     this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1]).setScale(.5)
 
     // text with score
