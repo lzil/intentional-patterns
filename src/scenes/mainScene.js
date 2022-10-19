@@ -30,9 +30,9 @@ const DRAWING_Y = 200
 const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
-const TRIAL_DELAY = 1500
-const TRIAL_SHAPE_DELAY = 1000
-const TRIAL_PUNISH_DELAY = 2000
+let TRIAL_DELAY = 1500
+let TRIAL_SHAPE_DELAY = 1000
+let TRIAL_PUNISH_DELAY = 2000
 
 const states = Enum([
   'INSTRUCT', // show text instructions (based on stage of task)
@@ -127,15 +127,26 @@ export default class MainScene extends Phaser.Scene {
       [6, 72],
       [7, 65]
     ]
+    this.n_patterns = this.patterns_list.length - 1
     this.cur_pattern = this.patterns_list[this.task_step]
     this.pattern_json = Patterns[this.cur_pattern[0]]
+    this.bonus_trials_each = 7
 
     this.is_debug = user_config.is_debug
     if (this.is_debug) {
-      this.phase_len = 2
+      this.phase_len = 1
       this.miniphase_len = 1
       this.test_len = 1
+      this.instruct_mode = 2
+      this.task_step = 1
+      this.bonus_trials_each = 1
+
+      TRIAL_DELAY = 500
+      TRIAL_SHAPE_DELAY = 100
+      TRIAL_PUNISH_DELAY = 100
     }
+
+    
 
     console.log('debug', this.is_debug)
     console.log('condition', this.condition)
@@ -238,7 +249,7 @@ export default class MainScene extends Phaser.Scene {
       '[b]Good job![/b]',
       instructions_font_params))
     this.instructions_2.add(this.add.rexBBCodeText(-500, -200,
-      `In the experiment, you'll see the same pattern in blocks of about ${this.phase_len * 2 + this.test_len} trials.\nTry to score well on each pattern. The experiment ends after [b]4 patterns[/b].`,
+      `In the experiment, you'll see the same pattern in blocks of about ${this.phase_len * 2 + this.test_len} trials.\nTry to score well on each pattern. The experiment ends after [b]4 patterns[/b]\nand a [b]bonus round[/b] with all the patterns.`,
       instructions_font_params))
     this.instructions_2.add(this.add.rexBBCodeText(-500, -50,
       `Trials may be interspersed with questions about colored shapes, as you\nsaw in the practice rounds.`,
@@ -430,6 +441,9 @@ export default class MainScene extends Phaser.Scene {
         }
         // how long you have to be inside circle to start trial
         this.hold_val = randint(300, 600)
+        if (this.is_debug) {
+          this.hold_val = 100
+        }
 
         
         this.hold_waiting = false
@@ -637,8 +651,8 @@ export default class MainScene extends Phaser.Scene {
           this.rewardText.setText('Please start your movement faster.')
           this.all_trial_data.push(this.trial_data)
           this.time.delayedCall(TRIAL_PUNISH_DELAY, () => {
-            this.next_trial()
             for (let p of this.draw_points) {p.destroy()}
+            this.next_trial()
           })
         }
         this.rewardText.setVisible(true)
@@ -745,47 +759,79 @@ export default class MainScene extends Phaser.Scene {
     } else {
       this.cur_trial_ix++
 
-      if (this.cur_trial_ix <= this.phase_len) {
-        // do nothing, you are in phase 1
-        this.task_phase = 1
-        this.state = states.PRETRIAL
-      } else if (this.cur_trial_ix <= this.phase_len + this.miniphase_len) {
-        // gap between p1 and p2, do some shape trials
-        this.trial_type = 'shapes'
-        this.state = states.SHAPES
-      } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len) {
-        // phase 2, where questions about shapes are asked
-        this.task_phase = 2
-        this.state = states.PRETRIAL
-      } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2) {
-        // gap between p2 and p3, do some shape trials
-        this.trial_type = 'shapes'
-        this.state = states.SHAPES
-      } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2 + this.test_len) {
-        // phase 3, test phase
-        this.task_phase = 3
-        this.state = states.PRETRIAL
-      } else {
-        // finished p3, move on to next shape
-        this.task_step++
-        if (this.task_step <= 4) {
+      if (this.task_step <= this.n_patterns) {
+        if (this.cur_trial_ix <= this.phase_len) {
+          // do nothing, you are in phase 1
+          this.task_phase = 1
+          this.state = states.PRETRIAL
+        } else if (this.cur_trial_ix <= this.phase_len + this.miniphase_len) {
+          // gap between p1 and p2, do some shape trials
+          this.trial_type = 'shapes'
+          this.state = states.SHAPES
+        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len) {
+          // phase 2, where questions about shapes are asked
+          this.task_phase = 2
+          this.state = states.PRETRIAL
+        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2) {
+          // gap between p2 and p3, do some shape trials
+          this.trial_type = 'shapes'
+          this.state = states.SHAPES
+        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2 + this.test_len) {
+          // phase 3, test phase
+          this.task_phase = 3
           this.state = states.PRETRIAL
         } else {
-          this.state = states.END
-          return
+          // finished p3, move on to next shape
+          this.task_step++
+          if (this.task_step <= this.n_patterns) {
+            this.state = states.PRETRIAL
+          } else {
+            // going into bonus step
+            this.bonus_step_ix = -1
+            // defining order of bonus step trials
+            let trained_patterns = this.patterns_list.slice(1)
+            this.bonus_trials = []
+            for (let i = 0; i < this.bonus_trials_each; i++) {
+              this.bonus_trials = this.bonus_trials.concat(shuffle(trained_patterns.slice()))
+            }
+          }
+          this.cur_trial_ix = 1
         }
-        this.cur_trial_ix = 1
-      }
 
-      // we are in new step! destroy old pattern and replace with new one
-      if (this.cur_trial_ix == 1) {
-        this.pattern.destroy()
-        this.cur_pattern = this.patterns_list[this.task_step]
-        this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1])
-          .setScale(.5)
-          .setVisible(false)
-        this.pattern_json = Patterns[this.cur_pattern[0]]
-        this.task_phase = 1
+        // we are in new step! destroy old pattern and replace with new one
+        if (this.cur_trial_ix == 1 && this.task_step <= this.n_patterns) {
+          this.pattern.destroy()
+          this.cur_pattern = this.patterns_list[this.task_step]
+          this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1])
+            .setScale(.5)
+            .setVisible(false)
+          this.pattern_json = Patterns[this.cur_pattern[0]]
+          this.task_phase = 1
+        }
+      } 
+
+      // this.task_step == 5 so this is bonus step
+      // not a for loop because previous if statement can take us here
+      if (this.task_step == this.n_patterns + 1) {
+        this.task_phase = 3
+        //choose random step and show that in phase 3
+        if (this.cur_trial_ix <= this.miniphase_len) {
+          // gap between p3 and bonus step
+          this.trial_type = 'shapes'
+          this.state = states.SHAPES
+        } else if (this.cur_trial_ix <= this.bonus_trials.length + this.miniphase_len) {
+          this.pattern.destroy()
+          this.bonus_step_ix++
+          this.cur_pattern = this.bonus_trials[this.bonus_step_ix]
+          this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1])
+            .setScale(.5)
+            .setVisible(false)
+          this.pattern_json = Patterns[this.cur_pattern[0]]
+          this.state = states.PRETRIAL
+        } else {
+          // time to end
+          this.state = states.END
+        }
       }
     }
   }
