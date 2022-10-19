@@ -57,9 +57,11 @@ export default class EndScene extends Phaser.Scene {
       let is_prolific = false
 
       if (user_config.is_debug) {
+        console.log('is debug so saving data')
         let file = new Blob([JSON.stringify(all_data, undefined, 2)], {type: 'application/json'});
         saveAs(file, 'all_data.json');
       } else {
+        console.log('is prolific so sending there')
         // is not sona
         // so possibly prolific
         // or if anything else, google redirect
