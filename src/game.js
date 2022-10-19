@@ -60,7 +60,7 @@ window.addEventListener('load', () => {
     is_prolific: url_params.get('PROLIFIC_PID') !== null,
     is_sona: url_params.get('SONA_ID') !== null,
     institution: 'yale',
-    description: 'intentional-patterns v2',
+    description: 'intentional-patterns v2_bonus',
     datetime: new Date(),
     already_visited: localStorage.getItem('intentional-patterns') !== null,
     width: game.config.width,

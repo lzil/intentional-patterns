@@ -146,8 +146,6 @@ export default class MainScene extends Phaser.Scene {
       TRIAL_PUNISH_DELAY = 100
     }
 
-    
-
     console.log('debug', this.is_debug)
     console.log('condition', this.condition)
 
