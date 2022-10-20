@@ -632,10 +632,11 @@ export default class MainScene extends Phaser.Scene {
             for (let p of this.draw_points) {p.destroy()}
             if (this.trial_type == 'single' || this.trial_type == 'double') {
               // need to answer the shapes question first
+              this.trial_data['shape_correct'] = 1
               this.state = states.SHAPES
             } else {
               // go ahead with next trial
-              this.trial_data['shape_correct'] = 1
+              // this.trial_data['shape_correct']
               this.trial_success_count++
               this.all_trial_data.push(this.trial_data)
               this.next_trial()
@@ -662,10 +663,6 @@ export default class MainScene extends Phaser.Scene {
         this.hide_everything()
 
         if (this.instruct_mode == 1) {this.arrow_back.setVisible(true)}
-
-        if (this.trial_type != 'shapes') {
-          this.trial_data['shape_correct'] = 1
-        }
 
         if (this.trial_type == 'double') {
           // double tasking question about missing item

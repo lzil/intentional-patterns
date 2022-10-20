@@ -9,15 +9,13 @@ import sys
 sys.path.append('../')
 import fig_format
 
-data_str = 'v1_debug'
+data_str = 'v2'
 data_path = f'data/patterns_{data_str}.json'
 
 with open(data_path, 'r') as f:
-	data = json.load(f)
+    data = json.load(f)
 
 # df = pd.read_json(data_path)
-
-# pdb.set_trace()
 
 p1_scores = []
 p3_scores = []
@@ -27,20 +25,20 @@ difs = []
 # participant = data[6]
 difs = {1:[], 2:[], 3:[], 4:[]}
 for participant in data:
-	td = pd.DataFrame(participant['data'])
-	td = td[td['set'] == 'main']
+    td = pd.DataFrame(participant['data'])
+    td = td[td['set'] == 'main']
 
-	for i in range(1,5):
-		tdi = td[td['step'] == i]
+    for i in range(1,5):
+        tdi = td[td['step'] == i]
 
-		# pdb.set_trace()
-		p1_score = tdi[tdi['phase'] == 1]['score']
-		p3_score = tdi[tdi['phase'] == 3]['score']
+        # pdb.set_trace()
+        p1_score = tdi[tdi['phase'] == 1]['score']
+        p3_score = tdi[tdi['phase'] == 3]['score']
 
-		# p1_scores.append(np.mean(p1_score))
-		# p3_scores.append(np.mean(p3_score))
+        # p1_scores.append(np.mean(p1_score))
+        # p3_scores.append(np.mean(p3_score))
 
-		difs[i].append((np.mean(p1_score), np.mean(p3_score)))
+        difs[i].append((np.mean(p1_score), np.mean(p3_score)))
 
 # pdb.set_trace()
 
@@ -68,8 +66,8 @@ plt.show()
 
 
 # for i in range(1,5):
-# 	uz = list(zip(*difs[i]))
-# 	plt.scatter(uz[0], uz[1], label=i)
+#   uz = list(zip(*difs[i]))
+#   plt.scatter(uz[0], uz[1], label=i)
 
 # plt.xlim([0,100])
 # plt.ylim([0,100])

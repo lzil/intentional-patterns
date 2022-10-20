@@ -17,3 +17,4 @@ all_data.json
 faunaquery.py
 
 .checklist
+.ipynb_checkpoints
