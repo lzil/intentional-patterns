@@ -26,7 +26,7 @@ dif = args.path.split('.')[-2][-1]
 with open(Path(args.path), 'r') as f:
 	trajs = json.load(f)
 
-fig = plt.figure(figsize=(5,5))
+fig = plt.figure(figsize=(10,10))
 
 fig_dir = Path('patterns', 'figs_' + dif)
 Path.mkdir(fig_dir, parents=True, exist_ok=True)
@@ -39,10 +39,10 @@ for i in args.ids:
 
 	plt.gcf().set_facecolor('#eeeeee')
 
-	plt.plot(x, y, color='#aaa', lw=10, zorder=-1)
+	plt.plot(x, y, color='#aaa', lw=15, zorder=-1)
 
-	plt.scatter(x[0], y[0], color=Set2(0), s=400)
-	plt.scatter(x[-1], y[-1], color=Set2(1), s=400)
+	plt.scatter(x[0], y[0], color=Set2(0), s=700)
+	plt.scatter(x[-1], y[-1], color=Set2(1), s=700)
 
 	plt.savefig(Path(fig_dir, dif + '_' + str(i) + '.png'))
 

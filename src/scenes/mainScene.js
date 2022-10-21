@@ -1,12 +1,11 @@
 import { randint, randchoice, shuffle } from '../utils/rand'
-import toPairs from '../utils/topairs'
-import { shapeSimilarity } from 'curve-matcher';
+import { shapeSimilarity, frechetDistance, rebalanceCurve , curveLength} from 'curve-matcher';
 import { Enum } from '../utils/enum'
+import { toPair } from '../utils/topair'
 
-import patterns4 from '../../public/patterns/p4.json'
-import patterns6 from '../../public/patterns/p6.json'
-import patterns7 from '../../public/patterns/p7.json'
-// import patterns8 from '../../public/patterns/p8.json'
+import patterns4 from '../../public/patterns/p4_filtered.json'
+import patterns6 from '../../public/patterns/p6_filtered.json'
+import patterns7 from '../../public/patterns/p7_filtered.json'
 
 const WHITE = 0xffffff
 const BLACK = 0x000000
@@ -21,24 +20,29 @@ const ORANGE = 0xED936B
 const BRIGHTRED = 0xd40a0a
 const BRIGHTGREEN = 0x24f49a
 
-const ORIGIN_SIZE_RADIUS = 15
-const MOVE_TIME_LIMIT = 1200
-const DRAW_TIME_LIMIT = 3000
+const ORIGIN_SIZE_RADIUS = 200
 
-const PATTERN_Y = -300
+
+const PATTERN_Y = 0
 const DRAWING_Y = 200
 const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
+let DRAW_TIME_LIMIT = 600
 let TRIAL_DELAY = 1500
 let TRIAL_SHAPE_DELAY = 1000
 let TRIAL_PUNISH_DELAY = 2000
+
+let PHASE_LEN = 20
+let MINIPHASE_LEN = 3
+let TEST_LEN = 10
+let BONUS_LEN_EACH = 7
 
 const states = Enum([
   'INSTRUCT', // show text instructions (based on stage of task)
   'PRETRIAL', // wait until ready to start trial
   'MOVING', // the movement part
-  'POSTTRIAL', // auto teleport back to restore point
+  'POSTTRIAL',
   'STATES',
   'END' //
 ])
@@ -48,14 +52,14 @@ const Err = {
   too_slow_move: 2,
 }
 
-const DCols = {
+const DCOLS = {
   0: 0x22a4e0,
   1: 0xe05e22,
   2: 0xbd22e0,
   3: 0x3cc81c
 }
 
-const Patterns = {
+const PATTERNS_JSON = {
   4: patterns4,
   6: patterns6,
   7: patterns7
@@ -69,25 +73,21 @@ export default class MainScene extends Phaser.Scene {
 
   preload() {
     this.load.image('next', 'assets/next_instructions.png')
-    // this.load.image('next_debug', 'assets/next_debug.png')
     this.load.image('previous', 'assets/previous_instructions.png')
     this.load.image('finish', 'assets/ticket.png')
     this.load.image('brush', 'assets/brush2.png');
 
+    let load_patterns = [
+      [4, 0],
+      [4, 41],
+      [4, 40],
+      [6, 13],
+      [6, 72],
+      [7, 65]
+    ]
 
-    // all the images of ids
-    this.p4_ids = [0, 40, 41]
-    this.p6_ids = [13, 72]
-    this.p7_ids = [65]
-
-    for (let i of this.p4_ids) {
-      this.load.image(`4_${i}`, `patterns/figs_4/4_${i}.png`);
-    }
-    for (let i of this.p6_ids) {
-      this.load.image(`6_${i}`, `patterns/figs_6/6_${i}.png`);
-    }
-    for (let i of this.p7_ids) {
-      this.load.image(`7_${i}`, `patterns/figs_7/7_${i}.png`);
+    for (let i of load_patterns) {
+      this.load.image(`${i[0]}_${i[1]}`, `patterns/figs_${i[0]}/${i[0]}_${i[1]}.png`)
     }
   }
 
@@ -102,24 +102,24 @@ export default class MainScene extends Phaser.Scene {
     this.state = states.INSTRUCT
     this.entering = true
     this.all_trial_data = []
+    this.colorshapes = []
 
     // variables to start off with
     this.instruct_mode = 1
-    this.task_phase = 0
+    this.pattern_ix = 0 // 0th pattern, or practice
+    this.pattern_phase = 0 // 0th phase, or practice
+    this.bonus_step_ix = -1 // indexes into bonus array, which adds 1 at beginning
+    this.trial_ix = 0 // overall counter which resets every pattern
 
-    this.colorshapes = []
-
-    this.phase_len = 20
-    this.miniphase_len = 3
-    this.test_len = 10
+    // defining condition
     if (user_config.condition == 1) {
       this.condition = 1
     } else {
       this.condition = 2 // 1 for single, 2 for double
     }
 
-    // the patterns used in this experiment
-    this.task_step = 0
+    // the patterns used in this experiment, in order
+    // could be subset of load_patterns in preload()
     this.patterns_list = [
       [4, 41],
       [4, 40],
@@ -127,32 +127,40 @@ export default class MainScene extends Phaser.Scene {
       [6, 72],
       [7, 65]
     ]
-    this.n_patterns = this.patterns_list.length - 1
-    this.cur_pattern = this.patterns_list[this.task_step]
-    this.pattern_json = Patterns[this.cur_pattern[0]]
-    this.bonus_trials_each = 7
+    this.n_patterns = this.patterns_list.length - 1 // first pattern is for practice
+    this.cur_pattern = this.patterns_list[this.pattern_ix]
+    this.pattern_json = PATTERNS_JSON[this.cur_pattern[0]][this.cur_pattern[1]]
+
+    // defining order of bonus step trials
+    let trained_patterns = this.patterns_list.slice(1)
+    this.bonus_trials = []
+    for (let i = 0; i < BONUS_LEN_EACH; i++) {
+      this.bonus_trials = this.bonus_trials.concat(shuffle(trained_patterns.slice()))
+    }
 
     this.is_debug = user_config.is_debug
+    this.is_debug = true
     if (this.is_debug) {
-      this.phase_len = 1
-      this.miniphase_len = 1
-      this.test_len = 1
       this.instruct_mode = 2
-      this.task_step = 1
-      this.bonus_trials_each = 1
+      this.pattern_ix = 1
 
-      TRIAL_DELAY = 500
+      PHASE_LEN = 4
+      MINIPHASE_LEN = 1
+      TEST_LEN = 1
+      BONUS_LEN_EACH = 1
+
+      TRIAL_DELAY = 800
       TRIAL_SHAPE_DELAY = 100
       TRIAL_PUNISH_DELAY = 100
+      // DRAW_TIME_LIMIT = 1000
     }
 
     console.log('debug', this.is_debug)
     console.log('condition', this.condition)
 
     // drawing elements
-    this.pattern_border = this.add.rectangle(0, PATTERN_Y, 280, 280, DARKGRAY)
-    console.log(this.cur_pattern[0] + '_' + this.cur_pattern[1])
-    this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1]).setScale(.5)
+    this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1]).setDepth(-5)
+    this.origin = new Phaser.Geom.Circle(0, PATTERN_Y, ORIGIN_SIZE_RADIUS) // NOT AN OBJECT
 
     // text with score
     this.rewardText = this.add.text(0, -100, '', {fontFamily: 'Verdana', fontSize: 50, color: DARKGRAY, align: 'center' }).
@@ -168,29 +176,21 @@ export default class MainScene extends Phaser.Scene {
     this.shapeResponse = this.add.rexBBCodeText(0, 120, '', {fontFamily: 'Verdana', fontSize: 50, color: DARKGRAY, align: 'center'})
       .setOrigin(.5,.5)
 
-    // circle people move their cursor to in order to start trial
-    this.origin_obj = this.add.circle(0, CURSOR_Y, ORIGIN_SIZE_RADIUS, LIGHTGRAY).setDepth(1).setVisible(true)
-    this.origin = new Phaser.Geom.Circle(0, CURSOR_Y, ORIGIN_SIZE_RADIUS) // NOT AN OBJECT
-
     // next and back buttons
-    this.arrow_next = this.add.image(600, 450, 'next').setScale(.2).setAlpha(.7)
-    this.arrow_back = this.add.image(-600, 450, 'previous').setScale(.2).setAlpha(.7)
+    this.arrow_next = this.add.image(600, 450, 'next').setScale(.2)
+    this.arrow_back = this.add.image(-600, 450, 'previous').setScale(.2)
       .setInteractive().setVisible(false)
-      .on('pointerover', () => {this.arrow_back.setAlpha(1)})
-      .on('pointerout', () => {this.arrow_back.setAlpha(0.7)})
       .on('pointerdown', () => {
         this.state = states.INSTRUCT
         this.instruct_mode = 1
         this.arrow_back.setVisible(false)
-        this.origin_obj.setVisible(false)
-        this.trial_success_count = 0
       })
 
     // secret finish button
     this.finish = this.add.rectangle(this.wd2,this.hd2,50,50).setInteractive()
       .on('pointerdown',()=>{this.scene.start('EndScene', this.all_trial_data)})
     this.next_inst = this.add.rectangle(this.wd2,-this.hd2,50,50).setInteractive()
-      .on('pointerdown',()=>{this.trial_success_count = 100})
+      .on('pointerdown',()=>{this.practice_success_count = 100})
 
     // fancy "INSTRUCTIONS" title
     this.instructions_title_group = this.add.group()
@@ -247,7 +247,7 @@ export default class MainScene extends Phaser.Scene {
       '[b]Good job![/b]',
       instructions_font_params))
     this.instructions_2.add(this.add.rexBBCodeText(-500, -200,
-      `In the experiment, you'll see the same pattern in blocks of about ${this.phase_len * 2 + this.test_len} trials.\nTry to score well on each pattern. The experiment ends after [b]4 patterns[/b]\nand a [b]bonus round[/b] with all the patterns.`,
+      `In the experiment, you'll see the same pattern in blocks of about ${PHASE_LEN * 2 + TEST_LEN} trials.\nTry to score well on each pattern. The experiment ends after [b]4 patterns[/b]\nand a [b]bonus round[/b] with all the patterns.`,
       instructions_font_params))
     this.instructions_2.add(this.add.rexBBCodeText(-500, -50,
       `Trials may be interspersed with questions about colored shapes, as you\nsaw in the practice rounds.`,
@@ -266,7 +266,6 @@ export default class MainScene extends Phaser.Scene {
 
   hide_everything() {
     this.pattern.setVisible(false)
-    this.pattern_border.setVisible(false)
 
     this.shapeQuestion.setVisible(false)
     this.shapeResponse.setVisible(false)
@@ -274,7 +273,6 @@ export default class MainScene extends Phaser.Scene {
     this.arrow_back.setVisible(false)
     this.rewardText.setVisible(false)
     this.warningText.setVisible(false)
-    this.origin_obj.setVisible(false)
 
     this.remove_colorshapes()
   }
@@ -282,15 +280,7 @@ export default class MainScene extends Phaser.Scene {
   show_instructions(mode) {
     this.hide_everything()
     this.instructions_title_group.setVisible(true)
-    // this.arrow_back.setVisible(false)
-    this.arrow_next.setVisible(true)
-      .setInteractive()
-      .setAlpha(0.7)
-      .on('pointerover', () => {
-        this.arrow_next.setAlpha(1)
-      }).on('pointerout', () => {
-        this.arrow_next.setAlpha(0.7)
-      })
+    this.arrow_next.setVisible(true).setInteractive()
     let group;
     if (mode === 1) {
       group = this.instructions_1
@@ -302,8 +292,8 @@ export default class MainScene extends Phaser.Scene {
       this.arrow_next.setVisible(false).removeAllListeners()
       this.instructions_title_group.setVisible(false)
       group.setVisible(false)
-      this.trial_success_count = 0
-      this.cur_trial_ix = 0
+      this.practice_success_count = 0
+      this.trial_ix = 0
       this.next_trial()
     })
   }
@@ -338,7 +328,7 @@ export default class MainScene extends Phaser.Scene {
 
   add_colorshape(colorid, shapeid, pos) {
     let shape;
-    let color = DCols[colorid]
+    let color = DCOLS[colorid]
     if (shapeid == 0) {
       shape = this.add.rectangle(pos[0], pos[1], 50, 50, color, 0).setStrokeStyle(10, color)
     } else if (shapeid == 1) {
@@ -403,30 +393,28 @@ export default class MainScene extends Phaser.Scene {
         console.log("Entering PRETRIAL")
         this.hide_everything()
         this.pattern.setVisible(true)
-        this.pattern_border.setVisible(true)
-        this.origin_obj.setVisible(true).setFillStyle(LIGHTGRAY)
 
         if (this.instruct_mode == 1) {
           this.arrow_back.setVisible(true)
-          if (this.trial_success_count < 2) {
+          if (this.practice_success_count < 2) {
             this.trial_type = 'draw'
-          } else if (this.trial_success_count < 4) {
+          } else if (this.practice_success_count < 4) {
             this.trial_type = 'single'
-          } else if (this.trial_success_count < 6) {
+          } else if (this.practice_success_count < 6) {
             this.trial_type = 'double'
           } else {
             this.trial_type = 'draw_nofb'
           }
         } else {
-          if (this.task_phase == 1) {
+          if (this.pattern_phase == 1) {
             this.trial_type = 'draw'
-          } else if (this.task_phase == 2) {
+          } else if (this.pattern_phase == 2) {
             if (this.condition == 1) {
               this.trial_type = 'single'
             } else if (this.condition == 2) {
               this.trial_type = 'double'
             }
-          } else if (this.task_phase == 3) {
+          } else if (this.pattern_phase == 3) {
             this.trial_type = 'draw_nofb'
           }
         }
@@ -434,71 +422,49 @@ export default class MainScene extends Phaser.Scene {
           this.warningText.setVisible(true).setText('Pay attention to the colored shape that will appear while you draw.')
         } else if (this.trial_type == 'draw_nofb') {
           this.warningText.setVisible(true).setText('You won\'t be able to see your drawing on this trial.')
-        } else if (this.cur_trial_ix == 1) {
-          this.warningText.setVisible(true).setText(`You are starting pattern #${this.task_step}!`)
+        } else if (this.trial_ix == 1) {
+          this.warningText.setVisible(true).setText(`You are starting pattern #${this.pattern_ix}!`)
         }
-        // how long you have to be inside circle to start trial
-        this.hold_val = randint(300, 600)
-        if (this.is_debug) {
-          this.hold_val = 100
-        }
-
         
-        this.hold_waiting = false
-        
+        this.cs_ids = []
         this.colorshapes = []
 
         this.pretrial_time = this.game.loop.now
         this.trial_data = {}
-        this.trial_data['ix'] = this.cur_trial_ix
+        this.trial_data['ix'] = this.trial_ix
         this.trial_data['type'] = this.trial_type
-        this.trial_data['phase'] = this.task_phase
-        this.trial_data['step'] = this.task_step
+        this.trial_data['step'] = this.pattern_ix
+        this.trial_data['phase'] = this.pattern_phase
         this.trial_data['pattern'] = this.cur_pattern[0] + '_' + this.cur_pattern[1]
-        console.log('trial', this.cur_trial_ix)
-        console.log('phase', this.task_phase)
+
+        this.pattern_curve_len = curveLength(toPair([this.pattern_json[0], this.pattern_json[1]]))
+        console.log(this.pattern_curve_len)
+
+        console.log('trial', this.trial_ix)
+        console.log('phase', this.pattern_phase)
         if (this.instruct_mode == 1) {
           this.trial_data['set'] = 'practice'
         } else {
           this.trial_data['set'] = 'main'
         }
         this.pointer_data = {'time': [], 'x': [], 'y': []}
-        
       }
 
-      // check if cursor inside start circle
-      // console.log(this.input.activePointer.x-this.wd2, this.origin.x, this.input.activePointer.y-this.hd2, this.origin.y)
-      let mouse_in_origin = this.origin.contains(
-        this.input.activePointer.x - this.wd2,
-        this.input.activePointer.y - this.hd2)
-      if (mouse_in_origin && !this.hold_waiting) {
-        this.hold_start_time = this.game.loop.now
-        this.hold_waiting = true;
-      } else if (!mouse_in_origin && this.hold_waiting) {
-        this.hold_waiting = false;
-      }
-
-      // wait for cursor inside start circle
-      if (this.hold_waiting) {
-        if (this.game.loop.now - this.hold_start_time > this.hold_val) {
-          this.hold_waiting = false;
-          this.state = states.MOVING
+      // check if person has started drawing
+      this.input.once('pointerdown', () => {
+        if (this.origin.contains(this.input.activePointer.x - this.wd2, this.input.activePointer.y - this.hd2)) {
+          this.state = states.MOVING;
+          this.input.removeListener('pointerdown')
         }
-      }
+      })
       
       break
 
     case states.MOVING:
       if (this.entering) {
         this.entering = false
-        this.moving = false
         console.log("Entering MOVING")
         if (this.instruct_mode == 1) {this.arrow_back.setVisible(false)}
-
-        this.origin_obj.setFillStyle(TEAL)
-
-        this.pattern.setVisible(true)
-        this.pattern_border.setVisible(true)
 
         // start time is when the circle turns green
         // start time != target show time. record all timestamps anyway, relative to start time
@@ -507,84 +473,52 @@ export default class MainScene extends Phaser.Scene {
         this.trial_data['pretrial_time'] = this.pretrial_time - this.start_time
 
         this.draw_points = []
-        this.game.canvas.style.cursor = 'none' 
-      }
+      } else {
+        let cur_time = this.game.loop.now
+        let pointerx = this.input.activePointer.x - this.wd2
+        let pointery = this.input.activePointer.y - this.hd2
+        let drawing_time = cur_time - this.start_time
 
+        var points = this.input.activePointer.getInterpolatedPosition(20);
+        for (let p of points) {
+          let px = p.x - this.wd2
+          let py = p.y - this.hd2
+          let pt = this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5).setAlpha(.5).setDepth(-2)
+          if (this.trial_type == 'draw_nofb' ) {pt.setVisible(false)}
+          this.draw_points.push(pt)
+        };
 
-      // // main loop, executed always
-      let cur_time = this.game.loop.now
-      let pointerx = this.input.activePointer.x - this.wd2
-      let pointery = this.input.activePointer.y - this.hd2
-      let cur_trial_time = cur_time - this.start_time
-
-      var points = this.input.activePointer.getInterpolatedPosition(20);
-      for (let p of points) {
-        let px = p.x - this.wd2
-        let py = p.y - this.hd2
-        let pt = this.add.image(px, py, 'brush').setTint(LIGHTGRAY).setScale(.5).setAlpha(.5).setDepth(-2)
-        if (this.trial_type == 'draw_nofb' ) {pt.setVisible(false)}
-        this.draw_points.push(pt)
-      };
-
-      // has participant started moving yet?
-      if (!this.moving) {
-        let mouse_in_origin = this.origin.contains(pointerx, pointery)
-
-        // participant just moved!
-        if (!mouse_in_origin) {
-          this.moving = true
-          this.move_time = cur_time
-          this.trial_data['move_time'] = cur_trial_time
-          // console.log(cur_trial_time, 'move_time')
-
-          this.pattern.setVisible(false)
-          this.pattern_border.setVisible(false)
-
-          // we will need to ask a question about colored shapes
-          this.cs_ids = this.choose_cs_subset()
+        // choose distractors for single/double questions
+        if (drawing_time > 200 && this.cs_ids.length == 0) {
           if (this.trial_type == 'double') {
+            this.cs_ids = this.choose_cs_subset()
             this.shapeAnswer = this.show_distractor(this.cs_ids[0], this.cs_ids[1])
           } else if (this.trial_type == 'single') {
             this.shapeAnswer = randchoice([0,1,2,3])
           }
         }
-
-        // not moving and we're overtime
-        if (!this.moving && cur_trial_time > MOVE_TIME_LIMIT) {
-          console.log('TOO_SLOW_MOVE')
-          this.trial_error = Err.too_slow_move
-          this.move_time = -1
-          this.state = states.POSTTRIAL
-        }
-      }
-
-      // once we're moving...
-      if (this.moving) {
+        
         // time, x, y
-        this.pointer_data.time.push(cur_trial_time)
+        this.pointer_data.time.push(drawing_time)
         this.pointer_data.x.push(pointerx)
         this.pointer_data.y.push(pointery)
 
-        let drawing_time = cur_time - this.move_time
-
-        let plen = this.pointer_data.x.length
-        let p10x = this.pointer_data.x[plen - 10]
-        let p10y = this.pointer_data.y[plen - 10]
-        if (drawing_time > 600 && p10x == pointerx && p10y == pointery) {
-          // console.log('STOPPED_MOVEMENT')
+        this.input.once('pointerup', () => {
           this.trial_error = Err.none
+          this.input.removeListener('pointerup')
           this.state = states.POSTTRIAL
-        }
+        })
 
         // reached drawing limit time. not an error
-        if (drawing_time > DRAW_TIME_LIMIT) {
+        if (drawing_time > DRAW_TIME_LIMIT * this.pattern_curve_len) {
           console.log('DRAW_TIME_LIMIT')
           this.trial_error = Err.none
+          this.input.removeListener('pointerup')
           this.state = states.POSTTRIAL
         }
+
       }
 
-      this.prev_time = cur_time
 
       break
 
@@ -593,7 +527,6 @@ export default class MainScene extends Phaser.Scene {
         console.log("Entering POSTTRIAL")
         this.entering = false
 
-        this.game.canvas.style.cursor = 'default' 
         this.hide_everything()
 
         this.end_time = this.game.loop.now
@@ -602,32 +535,34 @@ export default class MainScene extends Phaser.Scene {
         this.trial_data['pointer_data'] = this.pointer_data
 
         this.trial_data['error'] = this.trial_error
-        this.trial_data['score'] = 0 // 0 by default
 
         if (this.trial_error === Err.none) {
-          // no error happened
           // calculate score
-          let y0 = this.pointer_data.y[0]
+          this.pointer_data.x = this.pointer_data.x.map(x => x/1000)
           // normalize y positioning and invert to enable comparisons with pattern json data
-          this.pointer_data.y = this.pointer_data.y.map(y => (-y - y0))
-          let user_p = [this.pointer_data.x, this.pointer_data.y]
-          let real_p = [this.pattern_json[this.cur_pattern[1]][0], this.pattern_json[this.cur_pattern[1]][1]]
-          let pairs = toPairs(user_p, real_p)
-          let score = shapeSimilarity(pairs[0], pairs[1], { estimationPoints: 100, checkRotations: false });
-          this.score = Math.pow(score, 3)
+          let y0 = this.pointer_data.y[0]
+          this.pointer_data.y = this.pointer_data.y.map(y => (-y - y0)/1000)
+
+          let user_p = toPair([this.pointer_data.x, this.pointer_data.y])
+          let real_p = toPair([this.pattern_json[0], this.pattern_json[1]])
+
+          // square real score to make people just a bit worse
+          let scorert = shapeSimilarity(user_p, real_p, { estimationPoints: 100, checkRotations: false });
+          this.score = Math.round(Math.pow(scorert, 2) * 1000) / 10
+          this.trial_data['score'] = this.score
           console.log('score', this.score)
 
-          if (this.instruct_mode == 1) {this.arrow_back.setVisible(false)}
+          if (this.instruct_mode == 1) {
+            this.practice_success_count++
+            this.arrow_back.setVisible(false)
+          }
 
-          this.score = Math.round(this.score * 1000) / 10
           if (this.trial_type != 'draw_nofb') {
             this.rewardText.setText(`Your shape score was ${this.score}.`)
           } else {
             this.rewardText.setText(`Your shape score is hidden.`)
           }
 
-          this.trial_data['score'] = this.score
-          
           this.time.delayedCall(TRIAL_DELAY, () => {
             for (let p of this.draw_points) {p.destroy()}
             if (this.trial_type == 'single' || this.trial_type == 'double') {
@@ -636,23 +571,14 @@ export default class MainScene extends Phaser.Scene {
               this.state = states.SHAPES
             } else {
               // go ahead with next trial
-              // this.trial_data['shape_correct']
-              this.trial_success_count++
+              this.trial_data['shape_correct'] = null
               this.all_trial_data.push(this.trial_data)
               this.next_trial()
             }
           })
         } else {
-          // the only error in this task is moving too slow
-          if (this.instruct_mode == 1) {
-            this.trial_success_count = Math.max(this.trial_success_count - 2, 0)
-          }
-          this.rewardText.setText('Please start your movement faster.')
-          this.all_trial_data.push(this.trial_data)
-          this.time.delayedCall(TRIAL_PUNISH_DELAY, () => {
-            for (let p of this.draw_points) {p.destroy()}
-            this.next_trial()
-          })
+          // there is no error in this task during the movement phase
+          this.trial_data['score'] = null
         }
         this.rewardText.setVisible(true)
       }
@@ -684,9 +610,13 @@ export default class MainScene extends Phaser.Scene {
           if (i == this.shapeAnswer) {
             this.colorshapes[i].once('pointerdown', () => {
               this.shapeResponse.setText('Correct!').setStyle({color: BRIGHTGREEN}).setVisible(true)
-              this.trial_success_count++
               this.remove_colorshapes()
-              if (this.instruct_mode == 1) {this.arrow_back.setVisible(false)}
+
+              // move forward in practice phase
+              if (this.instruct_mode == 1) {
+                this.practice_success_count++
+                this.arrow_back.setVisible(false)
+              }
               
               // if this isn't just a miniphase, then finish adding the trial data
               if (this.trial_type != 'shapes') {
@@ -702,18 +632,22 @@ export default class MainScene extends Phaser.Scene {
             this.colorshapes[i].once('pointerdown', () => {
               this.shapeResponse.setText('Incorrect - let\'s try again.').setStyle({color: BRIGHTRED}).setVisible(true)
               this.remove_colorshapes()
+
+              // move back in practice phase if questions answered wrong
               if (this.instruct_mode == 1) {
                 this.arrow_back.setVisible(false)
-                this.trial_success_count = 3
+                this.practice_success_count = 3
+              }
+
+              // if this isn't just a miniphase then question was answered WRONG at least once
+              if (this.trial_type != 'shapes') {
+                this.trial_data['shape_correct'] = 0
               }
               
               this.time.delayedCall(TRIAL_PUNISH_DELAY, () => {
                 if (this.instruct_mode == 1) {this.arrow_back.setVisible(true)}
 
-                // if this isn't just a miniphase then question was answered WRONG at least once
-                if (this.trial_type != 'shapes') {
-                  this.trial_data['shape_correct'] = 0
-                }
+                
                 this.state = states.SHAPES
               })
             })
@@ -744,84 +678,73 @@ export default class MainScene extends Phaser.Scene {
   next_trial() {
     if (this.instruct_mode == 1) {
       // move on from the practice rounds
-      if (this.trial_success_count >= 8) {
+      if (this.practice_success_count >= 8) {
         this.instruct_mode = 2
         this.state = states.INSTRUCT
-        this.task_step++
+        this.pattern_ix++
         return
       }
       this.state = states.PRETRIAL
     } else {
-      this.cur_trial_ix++
+      this.trial_ix++
 
-      if (this.task_step <= this.n_patterns) {
-        if (this.cur_trial_ix <= this.phase_len) {
+      if (this.pattern_ix <= this.n_patterns) {
+        if (this.trial_ix <= PHASE_LEN) {
           // do nothing, you are in phase 1
-          this.task_phase = 1
+          this.pattern_phase = 1
           this.state = states.PRETRIAL
-        } else if (this.cur_trial_ix <= this.phase_len + this.miniphase_len) {
+        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN) {
           // gap between p1 and p2, do some shape trials
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN) {
           // phase 2, where questions about shapes are asked
-          this.task_phase = 2
+          this.pattern_phase = 2
           this.state = states.PRETRIAL
-        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2) {
           // gap between p2 and p3, do some shape trials
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.cur_trial_ix <= this.phase_len * 2 + this.miniphase_len * 2 + this.test_len) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2 + TEST_LEN) {
           // phase 3, test phase
-          this.task_phase = 3
+          this.pattern_phase = 3
           this.state = states.PRETRIAL
         } else {
           // finished p3, move on to next shape
-          this.task_step++
-          if (this.task_step <= this.n_patterns) {
+          this.pattern_ix++
+          if (this.pattern_ix <= this.n_patterns) {
             this.state = states.PRETRIAL
           } else {
             // going into bonus step
-            this.bonus_step_ix = -1
-            // defining order of bonus step trials
-            let trained_patterns = this.patterns_list.slice(1)
-            this.bonus_trials = []
-            for (let i = 0; i < this.bonus_trials_each; i++) {
-              this.bonus_trials = this.bonus_trials.concat(shuffle(trained_patterns.slice()))
-            }
+            
+            
           }
-          this.cur_trial_ix = 1
+          this.trial_ix = 1
         }
 
         // we are in new step! destroy old pattern and replace with new one
-        if (this.cur_trial_ix == 1 && this.task_step <= this.n_patterns) {
-          this.pattern.destroy()
-          this.cur_pattern = this.patterns_list[this.task_step]
-          this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1])
-            .setScale(.5)
-            .setVisible(false)
-          this.pattern_json = Patterns[this.cur_pattern[0]]
-          this.task_phase = 1
+        if (this.trial_ix == 1 && this.pattern_ix <= this.n_patterns) {
+          this.cur_pattern = this.patterns_list[this.pattern_ix]
+          this.pattern.setTexture(this.cur_pattern[0] + '_' + this.cur_pattern[1]).setVisible(false)
+          this.pattern_json = PATTERNS_JSON[this.cur_pattern[0]][this.cur_pattern[1]]
+          this.pattern_phase = 1
         }
       } 
 
-      // this.task_step == 5 so this is bonus step
-      // not a for loop because previous if statement can take us here
-      if (this.task_step == this.n_patterns + 1) {
-        this.task_phase = 3
+      // pattern_ix > number of patterns, so this is bonus step
+      // not inside previous block because previous if statement can take us here
+      if (this.pattern_ix == this.n_patterns + 1) {
+        this.pattern_phase = 3
         //choose random step and show that in phase 3
-        if (this.cur_trial_ix <= this.miniphase_len) {
+        if (this.trial_ix <= MINIPHASE_LEN) {
           // gap between p3 and bonus step
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.cur_trial_ix <= this.bonus_trials.length + this.miniphase_len) {
-          this.pattern.destroy()
+        } else if (this.trial_ix <= this.bonus_trials.length + MINIPHASE_LEN) {
           this.bonus_step_ix++
           this.cur_pattern = this.bonus_trials[this.bonus_step_ix]
-          this.pattern = this.add.image(0, PATTERN_Y, this.cur_pattern[0] + '_' + this.cur_pattern[1])
-            .setScale(.5)
-            .setVisible(false)
-          this.pattern_json = Patterns[this.cur_pattern[0]]
+          this.pattern.setTexture(this.cur_pattern[0] + '_' + this.cur_pattern[1]).setVisible(false)
+          this.pattern_json = PATTERNS_JSON[this.cur_pattern[0]][this.cur_pattern[1]]
           this.state = states.PRETRIAL
         } else {
           // time to end
