@@ -114,8 +114,10 @@ export default class MainScene extends Phaser.Scene {
     this.test_len = 10
     if (user_config.condition == 1) {
       this.condition = 1
-    } else {
+    } else if (user_config.condition == 2) {
       this.condition = 2 // 1 for single, 2 for double
+    } else {
+      this.condition = 3 // 3 for DT -> ST
     }
 
     // the patterns used in this experiment
@@ -419,9 +421,13 @@ export default class MainScene extends Phaser.Scene {
           }
         } else {
           if (this.task_phase == 1) {
-            this.trial_type = 'draw'
+            if (this.condition == 3) {
+              this.trial_type = 'double'
+            } else {
+              this.trial_type = 'draw'
+            }
           } else if (this.task_phase == 2) {
-            if (this.condition == 1) {
+            if (this.condition == 1 || this.condition == 3) {
               this.trial_type = 'single'
             } else if (this.condition == 2) {
               this.trial_type = 'double'
