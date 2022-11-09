@@ -23,7 +23,7 @@ const BRIGHTGREEN = 0x24f49a
 
 const ORIGIN_SIZE_RADIUS = 15
 const PATTERN_Y = -300
-const DRAWING_Y = 200
+const DRAWING_Y = 100
 const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
