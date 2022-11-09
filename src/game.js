@@ -53,14 +53,16 @@ window.addEventListener('load', () => {
     randomString(8)
   let ua_res = new UAParser().getResult()
   let condition = url_params.get('COND') || 2
+  let start_id = url_params.get('START_ID') || 0
   // console.log(url_params)
   // console.log(url_params.get('COND'))
   let user_config = {
     id: id.slice(0, 8), // just the first part of the ID, we don't need to store the whole thing
     is_prolific: url_params.get('PROLIFIC_PID') !== null,
     is_sona: url_params.get('SONA_ID') !== null,
+    start_id: start_id,
     institution: 'yale',
-    description: 'intentional-patterns v2_bonus',
+    description: 'intentional-patterns v4_tablet',
     datetime: new Date(),
     already_visited: localStorage.getItem('intentional-patterns') !== null,
     width: game.config.width,

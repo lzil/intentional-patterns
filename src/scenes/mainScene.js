@@ -3,10 +3,10 @@ import { shapeSimilarity } from 'curve-matcher';
 import { toPair } from '../utils/topair'
 import { Enum } from '../utils/enum'
 
-import patterns4 from '../../public/patterns/p4.json'
-import patterns6 from '../../public/patterns/p6.json'
-import patterns7 from '../../public/patterns/p7.json'
-import patterns8 from '../../public/patterns/p8.json'
+import patterns4 from '../../public/patterns/p4_filtered.json'
+import patterns6 from '../../public/patterns/p6_filtered.json'
+import patterns7 from '../../public/patterns/p7_filtered.json'
+import patterns8 from '../../public/patterns/p8_filtered.json'
 
 const WHITE = 0xffffff
 const BLACK = 0x000000
@@ -28,14 +28,14 @@ const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
 let DRAW_TIME_LIMIT = 2000
-let TRIAL_DELAY = 1100
+let TRIAL_DELAY = 1000
 let TRIAL_SHAPE_DELAY = 700
 let TRIAL_PUNISH_DELAY = 1000
 
 let PHASE_LEN = 25
-let MINIPHASE_LEN = 3
-let TEST_LEN = 15
-let BONUS_LEN_EACH = 15
+let MINIPHASE_LEN = 1
+let TEST_LEN = 10
+let BONUS_LEN_EACH = 10
 
 const states = Enum([
   'INSTRUCT', // show text instructions (based on stage of task)
@@ -77,12 +77,19 @@ export default class MainScene extends Phaser.Scene {
     this.load.image('finish', 'assets/ticket.png')
     this.load.image('brush', 'assets/brush2.png');
 
-    let load_patterns = [
+    // just thumbnails for instructions screen
+    let thumbnail_ids = [
       [4, 0],
       [6, 29],
       [6, 21],
-      [8, 57],
+      [8, 57]
+    ]
+    for (let i of thumbnail_ids) {
+      this.load.image(`${i[0]}_${i[1]}`, `patterns/figs_${i[0]}/${i[0]}_${i[1]}-t.png`)
+    }
 
+    // the actual patterns people might be learning
+    let pattern_ids = [
       [4, 41],
       [4, 40],
       [6, 13],
@@ -92,7 +99,7 @@ export default class MainScene extends Phaser.Scene {
       [8, 18]
     ]
 
-    for (let i of load_patterns) {
+    for (let i of pattern_ids) {
       this.load.image(`${i[0]}_${i[1]}`, `patterns/figs_${i[0]}/${i[0]}_${i[1]}.png`)
     }
   }
@@ -100,25 +107,6 @@ export default class MainScene extends Phaser.Scene {
   create() {
     let config = this.game.config
     let user_config = this.game.user_config
-
-    this.is_debug = user_config.is_debug
-    // this.is_debug = true
-    if (this.is_debug) {
-      PHASE_LEN = 1
-      MINIPHASE_LEN = 1
-      TEST_LEN = 1
-      BONUS_LEN_EACH = 1
-
-      this.instruct_mode = 1
-      this.pattern_ix = 0
-
-      // this.instruct_mode = 2
-      // this.pattern_ix = 1
-
-      TRIAL_DELAY = 500
-      TRIAL_SHAPE_DELAY = 100
-      TRIAL_PUNISH_DELAY = 100
-    }
 
     this.hd2 = config.height/2
     this.wd2 = config.width/2
@@ -145,6 +133,30 @@ export default class MainScene extends Phaser.Scene {
       this.condition = 3 // 3 for DT -> ST
     }
 
+    this.is_debug = user_config.is_debug
+    // this.is_debug = true
+    if (this.is_debug) {
+      PHASE_LEN = 1
+      MINIPHASE_LEN = 1
+      TEST_LEN = 1
+      BONUS_LEN_EACH = 1
+
+      this.instruct_mode = 1
+      this.pattern_ix = 0
+
+      // this.instruct_mode = 2
+      // this.pattern_ix = 1
+
+      TRIAL_DELAY = 500
+      TRIAL_SHAPE_DELAY = 100
+      TRIAL_PUNISH_DELAY = 100
+    }
+
+    if (user_config.start_id > 0) {
+      this.pattern_ix = user_config.start_id - 1
+    }
+
+    // could be different from the patterns loaded
     this.patterns_list = [
       [4, 41],
       [4, 40],
@@ -428,13 +440,15 @@ export default class MainScene extends Phaser.Scene {
             } else {
               this.trial_type = 'draw'
             }
-          } else if (this.pattern_phase == 2) {
-            if (this.condition == 1 || this.condition == 3) {
+          } else if (this.pattern_phase == 3) {
+            if (this.condition == 1) {
               this.trial_type = 'single'
             } else if (this.condition == 2) {
               this.trial_type = 'double'
+            } else if (this.condition == 3) {
+              this.trial_type = 'draw'
             }
-          } else if (this.pattern_phase == 3) {
+          } else if (this.pattern_phase == 2 || this.pattern_phase == 4) {
             this.trial_type = 'draw_nofb'
           }
         }
@@ -777,20 +791,32 @@ export default class MainScene extends Phaser.Scene {
           // do nothing, you are in phase 1
           this.pattern_phase = 1
           this.state = states.PRETRIAL
-        } else if (this.trial_ix <= PHASE_LEN * 2) {
-          // phase 2, where questions about shapes are asked
+        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN) {
+          // between phase 1 and 2
+          this.trial_type = 'shapes'
+          this.state = states.SHAPES
+        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN + TEST_LEN) {
+          // phase 2, the first test phase
           this.pattern_phase = 2
           this.state = states.PRETRIAL
-        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN) {
+        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN * 2 + TEST_LEN) {
+          // between phase 2 and 3
+          this.trial_type = 'shapes'
+          this.state = states.SHAPES
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2 + TEST_LEN) {
+          // phase 3, where questions about shapes are asked
+          this.pattern_phase = 3
+          this.state = states.PRETRIAL
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 3 + TEST_LEN) {
           // gap between p2 and p3, do some shape trials
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN + TEST_LEN) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 3 + TEST_LEN * 2) {
           // phase 3, test phase
-          this.pattern_phase = 3
+          this.pattern_phase = 4
           this.state = states.PRETRIAL
         } else {
-          // finished p3, move on to next shape
+          // finished p4, move on to next shape
           this.pattern_ix++
           if (this.pattern_ix <= this.n_patterns) {
             this.state = states.PRETRIAL
@@ -812,7 +838,7 @@ export default class MainScene extends Phaser.Scene {
       // this.pattern_ix == 5 so this is bonus step
       // not a for loop because previous if statement can take us here
       if (this.pattern_ix == this.n_patterns + 1) {
-        this.pattern_phase = 3
+        this.pattern_phase = 4
         //choose random step and show that in phase 3
         if (this.trial_ix <= MINIPHASE_LEN) {
           // gap between p3 and bonus step

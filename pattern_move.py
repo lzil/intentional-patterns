@@ -2,16 +2,25 @@ import json
 import os
 import shutil
 
-patterns = {
-	4: [40, 41, 56],
-	6: [0, 13, 72, 73],
-	7: [62, 65, 90]
+thumbnails = {
+	4: [0],
+	6: [29, 21],
+	8: [57]
 }
 
+for k,v in thumbnails.items():
+	os.makedirs(os.path.join('public', 'patterns', f'figs_{k}'), exist_ok=True)
+
+	for ix in v:
+		png_path = os.path.join('patterns', f'figs_{k}', f'{k}_{ix}-t.png')
+		new_png_path = os.path.join('public', 'patterns', f'figs_{k}', f'{k}_{ix}-t.png')
+		shutil.copy(png_path, new_png_path)
+
 patterns = {
-	4: [0],
-	6: [5, 21, 29],
-	8: [18, 57]
+	4: [40, 41],
+	6: [5, 13, 72],
+	7: [65],
+	8: [18]
 }
 
 for k,v in patterns.items():
