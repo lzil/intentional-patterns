@@ -460,7 +460,7 @@ export default class MainScene extends Phaser.Scene {
           this.warningText.setVisible(true).setText(`You are starting pattern #${this.pattern_ix}!`)
         }
         // how long you have to be inside circle to start trial
-        this.hold_val = randint(200, 400)
+        this.hold_val = randint(200, 300)
         if (this.is_debug) {
           this.hold_val = 100
         }
