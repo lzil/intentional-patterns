@@ -46,9 +46,10 @@ export default class EndScene extends Phaser.Scene {
     let mostly = 'https://google.com/?cc='
     if (this.game.user_config.is_prolific) {
       mostly = 'https://app.prolific.co/submissions/complete?cc='
-    } else if (is_sona) {
-      mostly = `https://yale.sona-systems.com/webstudy_credit.aspx?experiment_id=1479&credit_token=762ab607160043e58dd4ba6e9e1b288d&survey_code=${id}`
     }
+    // else if (is_sona) {
+    //   mostly = `https://yale.sona-systems.com/webstudy_credit.aspx?experiment_id=1479&credit_token=762ab607160043e58dd4ba6e9e1b288d&survey_code=${id}`
+    // }
 
     function postSelection(scene) {
       let alldata = { config: user_config, data: all_data }
