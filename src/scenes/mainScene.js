@@ -27,15 +27,15 @@ const DRAWING_Y = 200
 const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
-let DRAW_TIME_LIMIT = 1400
-let TRIAL_DELAY = 1200
-let TRIAL_SHAPE_DELAY = 800
+let DRAW_TIME_LIMIT = 2000
+let TRIAL_DELAY = 1100
+let TRIAL_SHAPE_DELAY = 700
 let TRIAL_PUNISH_DELAY = 1000
 
-let PHASE_LEN = 30
+let PHASE_LEN = 25
 let MINIPHASE_LEN = 3
 let TEST_LEN = 15
-let BONUS_LEN_EACH = 10
+let BONUS_LEN_EACH = 15
 
 const states = Enum([
   'INSTRUCT', // show text instructions (based on stage of task)
@@ -86,6 +86,7 @@ export default class MainScene extends Phaser.Scene {
       [4, 41],
       [4, 40],
       [6, 13],
+      [6, 5],
       [6, 72],
       [7, 65],
       [8, 18]
@@ -148,6 +149,7 @@ export default class MainScene extends Phaser.Scene {
       [4, 41],
       [4, 40],
       [6, 13],
+      [6, 5],
       [6, 72],
       [7, 65],
       [8, 18]
