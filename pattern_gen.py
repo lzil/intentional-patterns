@@ -47,14 +47,3 @@ plt.savefig(Path('patterns', f'p{n_points}.png'))
 
 with open(Path('patterns', f'p{n_points}.json'), 'w') as f:
 	json.dump(trajectories, f, indent=2)
-
-# def buildmebarchart(i=int):
-#     # plt.legend(df1.columns)
-#     p = plt.plot(x_new[:i], y_new[:i], c='red') #note it only returns the dataset, up to the point i
-#     # for i in range(0,4):
-#     #     p[i].set_color(color[i]) #set the colour of each curveimport matplotlib.animation as ani
-# animator = ani.FuncAnimation(fig, buildmebarchart, interval = 10)
-
-
-
-# plt.show()
