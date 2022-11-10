@@ -27,12 +27,12 @@ const DRAWING_Y = 100
 const DRAWING_SIZE = 600
 const CURSOR_Y = DRAWING_Y
 
-let DRAW_TIME_LIMIT = 2000
+let DRAW_TIME_LIMIT = 2500
 let TRIAL_DELAY = 1000
 let TRIAL_SHAPE_DELAY = 700
 let TRIAL_PUNISH_DELAY = 1000
 
-let PHASE_LEN = 25
+let PHASE_LEN = 30
 let MINIPHASE_LEN = 1
 let TEST_LEN = 10
 let BONUS_LEN_EACH = 10
@@ -350,13 +350,14 @@ export default class MainScene extends Phaser.Scene {
   // show distractor during "double" trials
   show_distractor(colors, shapes) {
     let positions = shuffle([
-      [-400, 0], [400, 0],
-      [-400, 200], [400, 200],
-      [-420, -100], [420, -100],
-      [-450, 300], [450, 300],
+      [-500, 400], [500, 400],
+      [-550, 200], [550, 200],
+      [-520, -200], [520, -200],
+      [-550, 300], [550, 300],
       [-500, 100], [500, 100],
-      [-450, 0], [450, 0],
+      [-550, 0], [550, 0],
       [-500, -50], [500, -50],
+      [-450, -350], [450, -350]
       ])
     let chosenId = randchoice([0,1,2,3])
 
@@ -440,7 +441,7 @@ export default class MainScene extends Phaser.Scene {
             } else {
               this.trial_type = 'draw'
             }
-          } else if (this.pattern_phase == 3) {
+          } else if (this.pattern_phase == 2) {
             if (this.condition == 1) {
               this.trial_type = 'single'
             } else if (this.condition == 2) {
@@ -448,7 +449,7 @@ export default class MainScene extends Phaser.Scene {
             } else if (this.condition == 3) {
               this.trial_type = 'draw'
             }
-          } else if (this.pattern_phase == 2 || this.pattern_phase == 4) {
+          } else if (this.pattern_phase == 3) {
             this.trial_type = 'draw_nofb'
           }
         }
@@ -578,9 +579,11 @@ export default class MainScene extends Phaser.Scene {
           this.trial_data['move_time'] = cur_trial_time
           // console.log(cur_trial_time, 'move_time')
 
-          this.pattern.setVisible(false)
-          this.pattern_border.setVisible(false)
-
+          if (this.trial_type == 'draw_nofb') {
+            this.pattern.setVisible(false)
+            this.pattern_border.setVisible(false)
+          }
+          
           // we will need to ask a question about colored shapes
           this.cs_ids = this.choose_cs_subset()
           if (this.trial_type == 'double') {
@@ -795,25 +798,17 @@ export default class MainScene extends Phaser.Scene {
           // between phase 1 and 2
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN + TEST_LEN) {
-          // phase 2, the first test phase
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN) {
+          // phase 2, where questions about shapes are asked
           this.pattern_phase = 2
           this.state = states.PRETRIAL
-        } else if (this.trial_ix <= PHASE_LEN + MINIPHASE_LEN * 2 + TEST_LEN) {
-          // between phase 2 and 3
-          this.trial_type = 'shapes'
-          this.state = states.SHAPES
-        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2 + TEST_LEN) {
-          // phase 3, where questions about shapes are asked
-          this.pattern_phase = 3
-          this.state = states.PRETRIAL
-        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 3 + TEST_LEN) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2) {
           // gap between p2 and p3, do some shape trials
           this.trial_type = 'shapes'
           this.state = states.SHAPES
-        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 3 + TEST_LEN * 2) {
+        } else if (this.trial_ix <= PHASE_LEN * 2 + MINIPHASE_LEN * 2 + TEST_LEN) {
           // phase 3, test phase
-          this.pattern_phase = 4
+          this.pattern_phase = 3
           this.state = states.PRETRIAL
         } else {
           // finished p4, move on to next shape
@@ -838,7 +833,7 @@ export default class MainScene extends Phaser.Scene {
       // this.pattern_ix == 5 so this is bonus step
       // not a for loop because previous if statement can take us here
       if (this.pattern_ix == this.n_patterns + 1) {
-        this.pattern_phase = 4
+        this.pattern_phase = 3
         //choose random step and show that in phase 3
         if (this.trial_ix <= MINIPHASE_LEN) {
           // gap between p3 and bonus step
