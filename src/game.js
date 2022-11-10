@@ -62,7 +62,7 @@ window.addEventListener('load', () => {
     is_sona: url_params.get('SONA_ID') !== null,
     start_id: start_id,
     institution: 'yale',
-    description: 'intentional-patterns v4_tablet',
+    description: 'intentional-patterns v5_tablet',
     datetime: new Date(),
     already_visited: localStorage.getItem('intentional-patterns') !== null,
     width: game.config.width,
